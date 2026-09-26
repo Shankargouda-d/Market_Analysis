@@ -32,10 +32,8 @@ class DataRepository {
       // 1. Try Supabase first if configured
       if (SupabaseService.isInitialized) {
         remote = await SupabaseService.fetchPurchases();
-      }
-
-      // 2. Fallback to Sheets if Supabase had no rows or is not configured
-      if (remote.isEmpty) {
+      } else if (syncWithSheets) {
+        // Fallback to Sheets only if Supabase is not configured
         remote = await SheetsService.fetchPurchases();
       }
 
@@ -118,9 +116,7 @@ class DataRepository {
 
       if (SupabaseService.isInitialized) {
         remote = await SupabaseService.fetchSales();
-      }
-
-      if (remote.isEmpty) {
+      } else if (syncWithSheets) {
         remote = await SheetsService.fetchSales();
       }
 
@@ -424,5 +420,10 @@ class DataRepository {
     if (SupabaseService.isInitialized) {
       await SupabaseService.deleteWorker(id);
     }
+  }
+
+  /// Completely wipes all local persistent data from the device across all environments.
+  static Future<void> clearAllLocalData() async {
+    await LocalStorageService.clearAllData();
   }
 }

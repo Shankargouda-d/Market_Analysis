@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../services/auth_service.dart';
+import '../services/local_storage_service.dart';
 import '../services/sheets_service.dart';
 import '../widgets/page_indicator.dart';
 import 'analytics_screen.dart';
@@ -258,6 +259,58 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _confirmClearLocalStorage() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.delete_sweep, color: Colors.red),
+            SizedBox(width: 10),
+            Text('Clear Local Data',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to remove the entire local data from this device? All offline cached purchases, sales, farmers, factories, and workers will be wiped clean.',
+          style: TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              await LocalStorageService.clearAllData();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('All local data has been completely removed!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+              // Trigger app rebuild
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const HomePage()),
+                (route) => false,
+              );
+            },
+            child: const Text('Remove All Data'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -320,6 +373,11 @@ class _HomePageState extends State<HomePage> {
             icon: const Icon(Icons.table_chart_outlined),
             tooltip: 'Google Sheets Export',
             onPressed: _showSheetsDialog,
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_sweep_outlined),
+            tooltip: 'Clear All Local Data',
+            onPressed: _confirmClearLocalStorage,
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded),

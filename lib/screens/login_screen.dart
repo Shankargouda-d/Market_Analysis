@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../services/auth_service.dart';
+import '../services/local_storage_service.dart';
 import 'home_page.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -49,6 +50,53 @@ class _LoginScreenState extends State<LoginScreen> {
         _errorMessage = 'Failed to log in. Please try again.';
       });
     }
+  }
+
+  void _confirmClearData() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.delete_sweep, color: Colors.red),
+            SizedBox(width: 10),
+            Text('Wipe Local Data',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to remove all local data from this device? All offline cache for both MarketP and MarketT will be permanently deleted.',
+          style: TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              await LocalStorageService.clearAllData();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('All local data has been wiped clean!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            child: const Text('Wipe All Local Data'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -397,6 +445,20 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextButton.icon(
+                  onPressed: _confirmClearData,
+                  icon: const Icon(Icons.delete_sweep_outlined,
+                      size: 18, color: Colors.red),
+                  label: const Text(
+                    'Clear All Local Storage / Start Fresh',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],

@@ -275,8 +275,21 @@ class LocalStorageService {
     }
   }
 
-  /// Clears all local storage data.
+  /// Completely clears ALL local data across all environments and all legacy keys.
   static Future<void> clearAllData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getKeys().toList();
+      for (final key in keys) {
+        if (key.startsWith('market_analysis_')) {
+          await prefs.remove(key);
+        }
+      }
+    } catch (_) {}
+  }
+
+  /// Clears local data for the currently active environment only.
+  static Future<void> clearActiveEnvironmentData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_purchasesKey);
