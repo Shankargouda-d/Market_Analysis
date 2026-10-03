@@ -246,8 +246,12 @@ class _FarmerDetailsScreenState extends State<FarmerDetailsScreen> {
     final phoneCtrl = TextEditingController(text: purchase.farmerPhone);
     final addressCtrl = TextEditingController(text: purchase.farmerAddress);
     final qtyCtrl = TextEditingController(text: purchase.quantity.toString());
+    final suitsCtrl = TextEditingController(
+        text: purchase.suitsKg > 0 ? purchase.suitsKg.toString() : '');
     final priceCtrl =
         TextEditingController(text: purchase.pricePerUnit.toString());
+    final advanceCtrl = TextEditingController(
+        text: purchase.advancePaid > 0 ? purchase.advancePaid.toString() : '');
     final formKey = GlobalKey<FormState>();
 
     showDialog(
@@ -255,8 +259,22 @@ class _FarmerDetailsScreenState extends State<FarmerDetailsScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDlgState) {
           final q = double.tryParse(qtyCtrl.text.trim()) ?? 0;
+          final sKg = double.tryParse(suitsCtrl.text.trim()) ?? 0;
           final pr = double.tryParse(priceCtrl.text.trim()) ?? 0;
-          final tot = q * pr;
+          final adv = double.tryParse(advanceCtrl.text.trim()) ?? 0;
+
+          double sInUnit = 0;
+          final lower = selectedUnit.toLowerCase();
+          if (lower.contains('quintal')) {
+            sInUnit = sKg / 100.0;
+          } else if (lower.contains('ton')) {
+            sInUnit = sKg / 1000.0;
+          } else {
+            sInUnit = sKg;
+          }
+          final netQ = (q - sInUnit) > 0 ? (q - sInUnit) : 0.0;
+          final cropTot = netQ * pr;
+          final netPay = cropTot - adv;
 
           return AlertDialog(
             shape:
@@ -329,7 +347,7 @@ class _FarmerDetailsScreenState extends State<FarmerDetailsScreen> {
                             keyboardType: const TextInputType.numberWithOptions(
                                 decimal: true),
                             decoration: const InputDecoration(
-                              labelText: 'Quantity *',
+                              labelText: 'Gross Quantity *',
                               prefixIcon: Icon(Icons.scale_outlined),
                               border: OutlineInputBorder(),
                             ),
@@ -362,6 +380,19 @@ class _FarmerDetailsScreenState extends State<FarmerDetailsScreen> {
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
+                      controller: suitsCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Suits / Deduction (in Kg) - Optional',
+                        prefixIcon: Icon(Icons.remove_circle_outline,
+                            color: Colors.deepOrange),
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (_) => setDlgState(() {}),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
                       controller: priceCtrl,
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true),
@@ -375,6 +406,19 @@ class _FarmerDetailsScreenState extends State<FarmerDetailsScreen> {
                           Validators.positiveNumber(v, field: 'Price'),
                     ),
                     const SizedBox(height: 12),
+                    TextFormField(
+                      controller: advanceCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Advance Paid (\u20B9) - Optional',
+                        prefixIcon: Icon(Icons.account_balance_wallet_outlined,
+                            color: Colors.blueGrey),
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (_) => setDlgState(() {}),
+                    ),
+                    const SizedBox(height: 12),
                     DateTimePickerWidget(
                       value: selectedDateTime,
                       onChanged: (v) =>
@@ -382,22 +426,108 @@ class _FarmerDetailsScreenState extends State<FarmerDetailsScreen> {
                     ),
                     const SizedBox(height: 12),
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppColors.buy.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
+                        color: AppColors.buy.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color: AppColors.buy.withValues(alpha: 0.25)),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Total Amount:',
-                              style: TextStyle(fontWeight: FontWeight.w600)),
-                          Text(
-                            '\u20B9${tot.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.buy,
-                                fontSize: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Gross Quantity:',
+                                  style: TextStyle(fontSize: 12)),
+                              Text('$q $selectedUnit',
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                          if (sKg > 0) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('(-) Suits Deduction:',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.deepOrange)),
+                                Text('-$sKg kg (-${sInUnit.toStringAsFixed(2)} $selectedUnit)',
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.deepOrange)),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('(=) Net Weight:',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold)),
+                                Text('${netQ.toStringAsFixed(2)} $selectedUnit',
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.buy)),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Crop Total Amount:',
+                                  style: TextStyle(fontSize: 12)),
+                              Text('\u20B9${cropTot.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          if (adv > 0) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('(-) Advance Paid:',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.brown)),
+                                Text('-\u20B9${adv.toStringAsFixed(2)}',
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.brown)),
+                              ],
+                            ),
+                          ],
+                          const Divider(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                adv > 0
+                                    ? 'Net Balance to Pay:'
+                                    : 'Total Amount:',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13),
+                              ),
+                              Text(
+                                '\u20B9${netPay.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.buy,
+                                    fontSize: 16),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -422,8 +552,11 @@ class _FarmerDetailsScreenState extends State<FarmerDetailsScreen> {
                       farmerPhone: phoneCtrl.text.trim(),
                       farmerAddress: addressCtrl.text.trim(),
                       quantity: double.parse(qtyCtrl.text.trim()),
+                      suitsKg: double.tryParse(suitsCtrl.text.trim()) ?? 0,
                       unit: selectedUnit,
                       pricePerUnit: double.parse(priceCtrl.text.trim()),
+                      advancePaid:
+                          double.tryParse(advanceCtrl.text.trim()) ?? 0,
                       dateTime: selectedDateTime,
                     );
 
@@ -487,6 +620,131 @@ class _FarmerDetailsScreenState extends State<FarmerDetailsScreen> {
       ),
     );
   }
+
+  void _showPurchaseDetailsDialog(PurchaseModel p) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.receipt_long, color: AppColors.buy),
+            SizedBox(width: 8),
+            Text('Purchase Details Voucher',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildVoucherRow('Crop Name', p.cropName, isBold: true),
+              _buildVoucherRow('Farmer Name', p.farmerName, isBold: true),
+              if (p.farmerPhone.isNotEmpty)
+                _buildVoucherRow('Mobile Number', p.farmerPhone),
+              if (p.farmerAddress.isNotEmpty)
+                _buildVoucherRow('Address / Village', p.farmerAddress),
+              _buildVoucherRow('Date & Time',
+                  '${p.dateTime.day}/${p.dateTime.month}/${p.dateTime.year} ${p.dateTime.hour.toString().padLeft(2, '0')}:${p.dateTime.minute.toString().padLeft(2, '0')}'),
+              const Divider(height: 16),
+              _buildVoucherRow('Gross Quantity', '${p.quantity} ${p.unit}'),
+              if (p.suitsKg > 0) ...[
+                _buildVoucherRow('Suits / Deduction',
+                    '-${p.suitsKg} kg (-${p.suitsInUnit.toStringAsFixed(2)} ${p.unit})',
+                    textColor: Colors.deepOrange),
+                _buildVoucherRow('Net Payable Quantity',
+                    '${p.netQuantity.toStringAsFixed(2)} ${p.unit}',
+                    isBold: true, textColor: AppColors.buy),
+              ],
+              _buildVoucherRow('Price per ${p.unit}',
+                  '\u20B9${p.pricePerUnit.toStringAsFixed(2)}'),
+              _buildVoucherRow(
+                  'Total Crop Amount', '\u20B9${p.totalAmount.toStringAsFixed(2)}',
+                  isBold: true),
+              if (p.advancePaid > 0)
+                _buildVoucherRow('Advance Paid',
+                    '-\u20B9${p.advancePaid.toStringAsFixed(2)}',
+                    textColor: Colors.amber.shade900),
+              const Divider(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.buy.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      p.advancePaid > 0
+                          ? 'Net Balance to Pay:'
+                          : 'Total Amount:',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      '\u20B9${p.netPayable.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.buy,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _showEditPurchaseDialog(p);
+            },
+            icon: const Icon(Icons.edit, size: 16),
+            label: const Text('Edit'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.buy,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Widget _buildVoucherRow(String label, String value,
+      {bool isBold = false, Color? textColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                  fontWeight: isBold ? FontWeight.w600 : FontWeight.normal)),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(value,
+                textAlign: TextAlign.end,
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+                    color: textColor ?? AppColors.textPrimary)),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   void _copyToClipboard(String text, String label) {
     Clipboard.setData(ClipboardData(text: text));
@@ -856,94 +1114,144 @@ class _FarmerDetailsScreenState extends State<FarmerDetailsScreen> {
                                 ),
                               )
                             else
-                              ...purchases.map((p) => Container(
-                                    margin: const EdgeInsets.only(bottom: 6),
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.background,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                          color: AppColors.divider),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.grass,
-                                            size: 16,
-                                            color: AppColors.buy),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
+                              ...purchases.map((p) => InkWell(
+                                    onTap: () => _showPurchaseDetailsDialog(p),
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Container(
+                                      margin: const EdgeInsets.only(bottom: 6),
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.background,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                            color: AppColors.divider),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.grass,
+                                              size: 16,
+                                              color: AppColors.buy),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  p.cropName,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  '${p.dateTime.day}/${p.dateTime.month}/${p.dateTime.year} \u2022 ${p.quantity} ${p.unit} @ \u20B9${p.pricePerUnit}',
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    color: AppColors.textSecondary,
+                                                  ),
+                                                ),
+                                                if (p.suitsKg > 0)
+                                                  Text(
+                                                    'Suits: -${p.suitsKg} kg (Net: ${p.netQuantity.toStringAsFixed(2)} ${p.unit})',
+                                                    style: const TextStyle(
+                                                      fontSize: 10,
+                                                      color: Colors.deepOrange,
+                                                      fontWeight: FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                if (p.advancePaid > 0)
+                                                  Text(
+                                                    'Adv: -\u20B9${p.advancePaid.toStringAsFixed(0)} \u2022 Net Bal: \u20B9${p.netPayable.toStringAsFixed(2)}',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      color: Colors.amber.shade900,
+                                                      fontWeight: FontWeight.w500,
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.end,
                                             children: [
                                               Text(
-                                                p.cropName,
+                                                '\u20B9${p.totalAmount.toStringAsFixed(2)}',
                                                 style: const TextStyle(
-                                                  fontWeight: FontWeight.w600,
+                                                  fontWeight: FontWeight.bold,
                                                   fontSize: 13,
+                                                  color: AppColors.buy,
                                                 ),
                                               ),
-                                              Text(
-                                                '${p.dateTime.day}/${p.dateTime.month}/${p.dateTime.year} \u2022 ${p.quantity} ${p.unit} @ \u20B9${p.pricePerUnit}',
-                                                style: const TextStyle(
-                                                  fontSize: 11,
-                                                  color: AppColors.textSecondary,
+                                              if (p.advancePaid > 0)
+                                                Text(
+                                                  'Bal: \u20B9${p.netPayable.toStringAsFixed(2)}',
+                                                  style: const TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: AppColors.textSecondary,
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                          const SizedBox(width: 4),
+                                          PopupMenuButton<String>(
+                                            icon: const Icon(Icons.more_vert,
+                                                size: 16,
+                                                color: AppColors.textSecondary),
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                            onSelected: (val) {
+                                              if (val == 'view') {
+                                                _showPurchaseDetailsDialog(p);
+                                              } else if (val == 'edit') {
+                                                _showEditPurchaseDialog(p);
+                                              } else if (val == 'delete') {
+                                                _confirmDeletePurchase(p);
+                                              }
+                                            },
+                                            itemBuilder: (ctx) => [
+                                              const PopupMenuItem(
+                                                value: 'view',
+                                                child: Row(
+                                                  children: [
+                                                    Icon(Icons.receipt_long,
+                                                        size: 16,
+                                                        color: AppColors.buy),
+                                                    SizedBox(width: 8),
+                                                    Text('View Details'),
+                                                  ],
+                                                ),
+                                              ),
+                                              const PopupMenuItem(
+                                                value: 'edit',
+                                                child: Row(
+                                                  children: [
+                                                    Icon(Icons.edit_outlined,
+                                                        size: 16),
+                                                    SizedBox(width: 8),
+                                                    Text('Edit Purchase'),
+                                                  ],
+                                                ),
+                                              ),
+                                              const PopupMenuItem(
+                                                value: 'delete',
+                                                child: Row(
+                                                  children: [
+                                                    Icon(Icons.delete_outline,
+                                                        size: 16,
+                                                        color: Colors.red),
+                                                    SizedBox(width: 8),
+                                                    Text('Delete Purchase',
+                                                        style: TextStyle(
+                                                            color: Colors.red)),
+                                                  ],
                                                 ),
                                               ),
                                             ],
                                           ),
-                                        ),
-                                        Text(
-                                          '\u20B9${p.totalAmount.toStringAsFixed(2)}',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                            color: AppColors.buy,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        PopupMenuButton<String>(
-                                          icon: const Icon(Icons.more_vert,
-                                              size: 16,
-                                              color: AppColors.textSecondary),
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(),
-                                          onSelected: (val) {
-                                            if (val == 'edit') {
-                                              _showEditPurchaseDialog(p);
-                                            } else if (val == 'delete') {
-                                              _confirmDeletePurchase(p);
-                                            }
-                                          },
-                                          itemBuilder: (ctx) => [
-                                            const PopupMenuItem(
-                                              value: 'edit',
-                                              child: Row(
-                                                children: [
-                                                  Icon(Icons.edit_outlined,
-                                                      size: 16),
-                                                  SizedBox(width: 8),
-                                                  Text('Edit Purchase'),
-                                                ],
-                                              ),
-                                            ),
-                                            const PopupMenuItem(
-                                              value: 'delete',
-                                              child: Row(
-                                                children: [
-                                                  Icon(Icons.delete_outline,
-                                                      size: 16,
-                                                      color: Colors.red),
-                                                  SizedBox(width: 8),
-                                                  Text('Delete Purchase',
-                                                      style: TextStyle(
-                                                          color: Colors.red)),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   )),
                           ],

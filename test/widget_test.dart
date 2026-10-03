@@ -44,8 +44,8 @@ void main() {
 
   testWidgets('Market Analysis app full navigation and features smoke test when logged in',
       (WidgetTester tester) async {
-    // Set a phone/tablet viewport
-    tester.view.physicalSize = const Size(800, 1400);
+    // Set a tablet/desktop viewport so all 7 tabs fit comfortably
+    tester.view.physicalSize = const Size(1200, 1600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
 
@@ -55,9 +55,10 @@ void main() {
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
 
-    // Verify all 6 navigation tabs/destinations are rendered
+    // Verify all 7 navigation tabs/destinations are rendered
     expect(find.text('Buy'), findsWidgets);
     expect(find.text('Sell'), findsWidgets);
+    expect(find.text('Expenditure'), findsWidgets);
     expect(find.text('Analytics'), findsWidgets);
     expect(find.text('Farmers'), findsWidgets);
     expect(find.text('Factories'), findsWidgets);
@@ -67,6 +68,8 @@ void main() {
     expect(find.text('Farmer name'), findsOneWidget);
     expect(find.text('Farmer mobile no.'), findsOneWidget);
     expect(find.text('Farmer address / village'), findsOneWidget);
+    expect(find.text('Suits / Deduction (in Kg) - Optional'), findsOneWidget);
+    expect(find.text('Advance Paid Amount (\u20B9) - Optional'), findsOneWidget);
     expect(find.text('Calculated Total Price'), findsOneWidget);
     expect(find.text('Save purchase'), findsOneWidget);
 

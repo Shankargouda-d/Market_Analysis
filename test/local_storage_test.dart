@@ -327,5 +327,50 @@ void main() {
     expect(prodList.first.id, 'p_prod_exclusive');
     expect(prodList.any((p) => p.id == 't_test_exclusive'), false);
   });
+
+  test('PurchaseModel correctly deducts suits in kg, calculates crop amount, and subtracts advance paid', () async {
+    // 10 Quintals, 50 kg suits -> net = 9.5 Quintals.
+    // Price = 2000 per Quintal. Total = 9.5 * 2000 = 19,000.
+    // Advance paid = 5,000 -> Net Payable = 14,000.
+    final p = PurchaseModel(
+      id: 'p_suits_test',
+      cropName: 'Cotton',
+      farmerName: 'Mallikarjun',
+      farmerPhone: '9845112233',
+      farmerAddress: 'Raichur',
+      quantity: 10,
+      suitsKg: 50,
+      unit: 'Quintal',
+      pricePerUnit: 2000,
+      advancePaid: 5000,
+      dateTime: DateTime(2026, 3, 20),
+    );
+
+    expect(p.suitsInUnit, 0.5); // 50 kg / 100
+    expect(p.netQuantity, 9.5); // 10 - 0.5
+    expect(p.totalAmount, 19000); // 9.5 * 2000
+    expect(p.advancePaid, 5000);
+    expect(p.netPayable, 14000); // 19000 - 5000
+    expect(p.balanceDue, 14000);
+
+    // Save and load through LocalStorageService
+    await LocalStorageService.addPurchase(p);
+    final loadedList = await LocalStorageService.loadPurchases();
+    final loaded = loadedList.firstWhere((item) => item.id == 'p_suits_test');
+
+    expect(loaded.suitsKg, 50);
+    expect(loaded.suitsInUnit, 0.5);
+    expect(loaded.netQuantity, 9.5);
+    expect(loaded.totalAmount, 19000);
+    expect(loaded.advancePaid, 5000);
+    expect(loaded.netPayable, 14000);
+
+    // Verify Supabase Map serialization
+    final supaMap = loaded.toSupabaseMap();
+    expect(supaMap['suits_kg'], 50);
+    expect(supaMap['net_quantity'], 9.5);
+    expect(supaMap['advance_paid'], 5000);
+    expect(supaMap['net_payable'], 14000);
+  });
 }
 

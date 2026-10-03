@@ -5,6 +5,7 @@ import '../models/factory_model.dart';
 import '../models/purchase_model.dart';
 import '../models/sale_model.dart';
 import '../models/worker_model.dart';
+import '../models/expenditure_model.dart';
 import 'auth_service.dart';
 
 /// Production service providing direct, type-safe communication
@@ -351,6 +352,65 @@ class SupabaseService {
 
       final list = (res as List)
           .map((row) => WorkerModel.fromJson(Map<String, dynamic>.from(row)))
+          .toList();
+      return list;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ====================================================================
+  // Other Expenditure
+  // ====================================================================
+
+  static Future<bool> addExpenditure(ExpenditureModel expenditure) async {
+    final c = client;
+    if (c == null) return false;
+    try {
+      await c.from(table('expenditures')).upsert(expenditure.toSupabaseMap());
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> updateExpenditure(ExpenditureModel expenditure) async {
+    final c = client;
+    if (c == null) return false;
+    try {
+      await c
+          .from(table('expenditures'))
+          .update(expenditure.toSupabaseMap())
+          .eq('id', expenditure.id);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> deleteExpenditure(String id) async {
+    final c = client;
+    if (c == null) return false;
+    try {
+      await c.from(table('expenditures')).delete().eq('id', id);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<List<ExpenditureModel>> fetchExpenditures() async {
+    final c = client;
+    if (c == null) return [];
+    try {
+      final res = await c
+          .from(table('expenditures'))
+          .select()
+          .order('date', ascending: false);
+
+      final list = (res as List)
+          .map((row) =>
+              ExpenditureModel.fromJson(Map<String, dynamic>.from(row)))
           .toList();
       return list;
     } catch (_) {

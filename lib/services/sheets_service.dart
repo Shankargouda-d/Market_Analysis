@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
 import '../models/purchase_model.dart';
 import '../models/sale_model.dart';
+import '../models/expenditure_model.dart';
 import 'auth_service.dart';
 
 /// Communicates with Google Apps Script Web App.
@@ -88,6 +89,13 @@ class SheetsService {
     return _sendPost({
       'action': 'addSale',
       'data': sale.toJson(),
+    });
+  }
+
+  static Future<bool> addExpenditure(ExpenditureModel expenditure) async {
+    return _sendPost({
+      'action': 'addExpenditure',
+      'data': expenditure.toJson(),
     });
   }
 

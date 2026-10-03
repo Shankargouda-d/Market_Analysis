@@ -5,6 +5,7 @@ import '../models/sale_model.dart';
 import '../models/farmer_model.dart';
 import '../models/factory_model.dart';
 import '../models/worker_model.dart';
+import '../models/expenditure_model.dart';
 
 import 'auth_service.dart';
 
@@ -21,6 +22,7 @@ class LocalStorageService {
   static String get _farmersKey => 'market_analysis_farmers$_envSuffix';
   static String get _factoriesKey => 'market_analysis_factories$_envSuffix';
   static String get _workersKey => 'market_analysis_workers$_envSuffix';
+  static String get _expendituresKey => 'market_analysis_expenditures$_envSuffix';
 
   /// Loads locally saved purchases. Returns an empty list if none are saved.
   static Future<List<PurchaseModel>> loadPurchases() async {
@@ -297,6 +299,7 @@ class LocalStorageService {
       await prefs.remove(_farmersKey);
       await prefs.remove(_factoriesKey);
       await prefs.remove(_workersKey);
+      await prefs.remove(_expendituresKey);
     } catch (_) {}
   }
 
@@ -334,5 +337,64 @@ class LocalStorageService {
     final list = await loadWorkers();
     list.removeWhere((w) => w.id == id);
     await saveWorkers(list);
+  }
+
+  // ====================================================================
+  // Other Expenditure
+  // ====================================================================
+
+  /// Loads locally saved expenditures.
+  static Future<List<ExpenditureModel>> loadExpenditures() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonString = prefs.getString(_expendituresKey);
+      if (jsonString == null || jsonString.isEmpty) return [];
+
+      final List<dynamic> decoded = jsonDecode(jsonString);
+      final list = decoded
+          .map((e) => ExpenditureModel.fromJson(Map<String, dynamic>.from(e)))
+          .toList()
+        ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+      return list;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Overwrites locally saved expenditures.
+  static Future<void> saveExpenditures(List<ExpenditureModel> expenditures) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonString =
+          jsonEncode(expenditures.map((e) => e.toJson()).toList());
+      await prefs.setString(_expendituresKey, jsonString);
+    } catch (_) {}
+  }
+
+  /// Adds an expenditure.
+  static Future<void> addExpenditure(ExpenditureModel expenditure) async {
+    final list = await loadExpenditures();
+    list.removeWhere((e) => e.id == expenditure.id);
+    list.insert(0, expenditure);
+    await saveExpenditures(list);
+  }
+
+  /// Updates an existing expenditure.
+  static Future<void> updateExpenditure(ExpenditureModel expenditure) async {
+    final list = await loadExpenditures();
+    final index = list.indexWhere((e) => e.id == expenditure.id);
+    if (index != -1) {
+      list[index] = expenditure;
+      await saveExpenditures(list);
+    } else {
+      await addExpenditure(expenditure);
+    }
+  }
+
+  /// Deletes an expenditure by id.
+  static Future<void> deleteExpenditure(String id) async {
+    final list = await loadExpenditures();
+    list.removeWhere((e) => e.id == id);
+    await saveExpenditures(list);
   }
 }

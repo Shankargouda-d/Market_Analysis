@@ -21,6 +21,29 @@ class AppConstants {
   /// Units the user can pick for quantity.
   static const List<String> units = ['Quintal', 'Kg', 'Ton'];
 
+  /// Standard categories for Other Expenditure.
+  static const List<String> expenditureCategories = [
+    'Transportation / Freight',
+    'Loading & Unloading (Hamali)',
+    'Gunny Bags / Packaging',
+    'Diesel / Fuel',
+    'Machinery & Vehicle Repair',
+    'Toll & Weighbridge (Dharmakanta)',
+    'Electricity & Water',
+    'Food & Tea Expenses',
+    'Rent & Office Expenses',
+    'Labor / Daily Wages',
+    'Other / Miscellaneous',
+  ];
+
+  /// Payment modes for expenditures and transactions.
+  static const List<String> paymentModes = [
+    'Cash',
+    'UPI / Online',
+    'Bank Transfer',
+    'Cheque',
+  ];
+
   /// Deployed Google Apps Script Web App URL loaded safely from .env file.
   static String get sheetsWebAppUrl =>
       dotenv.env['SHEETS_WEB_APP_URL'] ?? '';

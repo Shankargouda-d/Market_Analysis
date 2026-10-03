@@ -3,6 +3,7 @@ import '../models/factory_model.dart';
 import '../models/purchase_model.dart';
 import '../models/sale_model.dart';
 import '../models/worker_model.dart';
+import '../models/expenditure_model.dart';
 import 'local_storage_service.dart';
 import 'sheets_service.dart';
 import 'supabase_service.dart';
@@ -425,5 +426,67 @@ class DataRepository {
   /// Completely wipes all local persistent data from the device across all environments.
   static Future<void> clearAllLocalData() async {
     await LocalStorageService.clearAllData();
+  }
+
+  // ====================================================================
+  // Other Expenditure
+  // ====================================================================
+
+  /// Loads cached expenditures immediately and syncs with Supabase in background.
+  static Future<List<ExpenditureModel>> getExpenditures(
+      {bool syncWithBackend = true}) async {
+    final cached = await LocalStorageService.loadExpenditures();
+
+    if (!syncWithBackend) {
+      return cached;
+    }
+
+    try {
+      if (SupabaseService.isInitialized) {
+        final remote = await SupabaseService.fetchExpenditures();
+        if (remote.isNotEmpty) {
+          final Map<String, ExpenditureModel> map = {};
+          for (final e in cached) {
+            map[e.id] = e;
+          }
+          for (final e in remote) {
+            map[e.id] = e;
+          }
+          final merged = map.values.toList()
+            ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+          await LocalStorageService.saveExpenditures(merged);
+          return merged;
+        }
+      }
+    } catch (_) {}
+
+    return cached;
+  }
+
+  /// Saves an expenditure locally and pushes to Supabase.
+  static Future<bool> saveExpenditure(ExpenditureModel expenditure) async {
+    await LocalStorageService.addExpenditure(expenditure);
+    if (SupabaseService.isInitialized) {
+      await SupabaseService.addExpenditure(expenditure);
+    }
+    return true;
+  }
+
+  /// Updates an expenditure locally and in Supabase.
+  static Future<bool> updateExpenditure(ExpenditureModel expenditure) async {
+    await LocalStorageService.updateExpenditure(expenditure);
+    if (SupabaseService.isInitialized) {
+      await SupabaseService.updateExpenditure(expenditure);
+    }
+    return true;
+  }
+
+  /// Deletes an expenditure locally and from Supabase.
+  static Future<bool> deleteExpenditure(String id) async {
+    await LocalStorageService.deleteExpenditure(id);
+    if (SupabaseService.isInitialized) {
+      await SupabaseService.deleteExpenditure(id);
+    }
+    return true;
   }
 }

@@ -6,6 +6,7 @@ import '../services/sheets_service.dart';
 import '../widgets/page_indicator.dart';
 import 'analytics_screen.dart';
 import 'buy_screen.dart';
+import 'expenditure_screen.dart';
 import 'farmer_details_screen.dart';
 import 'factory_details_screen.dart';
 import 'login_screen.dart';
@@ -13,8 +14,8 @@ import 'sell_screen.dart';
 import 'worker_details_screen.dart';
 
 /// The single screen registered in main.dart. It hosts a PageView so
-/// the user can swipe left/right between Buy, Sell, Analytics, Farmer Details,
-/// Factory Details, and Worker Details, with both top tabs and a bottom navigation bar.
+/// the user can swipe left/right between Buy, Sell, Expenditure, Analytics,
+/// Farmer Details, Factory Details, and Worker Details, with top tabs and bottom navigation.
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -29,6 +30,7 @@ class _HomePageState extends State<HomePage> {
   final _titles = const [
     'Buy',
     'Sell',
+    'Other Expenditure',
     'Analytics',
     'Farmer Details',
     'Factory Details',
@@ -37,6 +39,7 @@ class _HomePageState extends State<HomePage> {
   final _shortTitles = const [
     'Buy',
     'Sell',
+    'Expenditure',
     'Analytics',
     'Farmers',
     'Factories',
@@ -45,6 +48,7 @@ class _HomePageState extends State<HomePage> {
   final _icons = const [
     Icons.shopping_cart,
     Icons.storefront,
+    Icons.receipt_long,
     Icons.bar_chart,
     Icons.agriculture,
     Icons.factory,
@@ -53,6 +57,7 @@ class _HomePageState extends State<HomePage> {
   final _outlinedIcons = const [
     Icons.shopping_cart_outlined,
     Icons.storefront_outlined,
+    Icons.receipt_long_outlined,
     Icons.bar_chart_outlined,
     Icons.agriculture_outlined,
     Icons.factory_outlined,
@@ -61,6 +66,7 @@ class _HomePageState extends State<HomePage> {
   final _colors = const [
     AppColors.buy,
     AppColors.sell,
+    AppColors.expenditure,
     AppColors.analytics,
     AppColors.farmer,
     AppColors.factory,
@@ -403,7 +409,7 @@ class _HomePageState extends State<HomePage> {
           backgroundColor: AppColors.cardBackground,
           indicatorColor: _colors[_index].withValues(alpha: 0.18),
           height: 65,
-          destinations: List.generate(6, (i) {
+          destinations: List.generate(7, (i) {
             return NavigationDestination(
               icon: Icon(_outlinedIcons[i]),
               selectedIcon: Icon(_icons[i], color: _colors[i]),
@@ -428,6 +434,7 @@ class _HomePageState extends State<HomePage> {
               children: const [
                 BuyScreen(),
                 SellScreen(),
+                ExpenditureScreen(),
                 AnalyticsScreen(),
                 FarmerDetailsScreen(),
                 FactoryDetailsScreen(),
@@ -437,7 +444,7 @@ class _HomePageState extends State<HomePage> {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 6),
-            child: PageIndicator(count: 6, currentIndex: _index),
+            child: PageIndicator(count: 7, currentIndex: _index),
           ),
         ],
       ),

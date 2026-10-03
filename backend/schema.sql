@@ -3,9 +3,9 @@
 -- ====================================================================
 -- 100% Physical Database Separation for:
 --   1. MarketP: Production Environment (Real Business Operations)
---      Tables: p_purchases, p_sales, p_farmers, p_factories, p_workers
+--      Tables: p_purchases, p_sales, p_farmers, p_factories, p_workers, p_expenditures
 --   2. MarketT: Test / Staging Environment (Bug fixing, experiments)
---      Tables: t_purchases, t_sales, t_farmers, t_factories, t_workers
+--      Tables: t_purchases, t_sales, t_farmers, t_factories, t_workers, t_expenditures
 --
 -- INSTRUCTIONS:
 -- 1. Log in to your Supabase Dashboard: https://supabase.com/dashboard
@@ -29,9 +29,13 @@ CREATE TABLE IF NOT EXISTS public.p_purchases (
     farmer_address TEXT DEFAULT '',
     farmer_details TEXT DEFAULT '',
     quantity NUMERIC NOT NULL DEFAULT 0,
+    suits_kg NUMERIC NOT NULL DEFAULT 0,
+    net_quantity NUMERIC NOT NULL DEFAULT 0,
     unit TEXT NOT NULL DEFAULT 'Quintal',
     price_per_unit NUMERIC NOT NULL DEFAULT 0,
     total_amount NUMERIC NOT NULL DEFAULT 0,
+    advance_paid NUMERIC NOT NULL DEFAULT 0,
+    net_payable NUMERIC NOT NULL DEFAULT 0,
     date TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
@@ -102,6 +106,22 @@ CREATE TABLE IF NOT EXISTS public.p_workers (
 CREATE INDEX IF NOT EXISTS idx_p_workers_name ON public.p_workers (name);
 CREATE INDEX IF NOT EXISTS idx_p_workers_role ON public.p_workers (role);
 
+-- 6. Production Other Expenditures
+CREATE TABLE IF NOT EXISTS public.p_expenditures (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT 'Other / Miscellaneous',
+    amount NUMERIC NOT NULL DEFAULT 0,
+    paid_to TEXT DEFAULT '',
+    payment_mode TEXT NOT NULL DEFAULT 'Cash',
+    notes TEXT DEFAULT '',
+    date TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_p_expenditures_date ON public.p_expenditures (date DESC);
+CREATE INDEX IF NOT EXISTS idx_p_expenditures_category ON public.p_expenditures (category);
+
 
 -- ====================================================================
 -- SECTION B: TESTING / SANDBOX TABLES (MarketT - prefix: t_)
@@ -116,9 +136,13 @@ CREATE TABLE IF NOT EXISTS public.t_purchases (
     farmer_address TEXT DEFAULT '',
     farmer_details TEXT DEFAULT '',
     quantity NUMERIC NOT NULL DEFAULT 0,
+    suits_kg NUMERIC NOT NULL DEFAULT 0,
+    net_quantity NUMERIC NOT NULL DEFAULT 0,
     unit TEXT NOT NULL DEFAULT 'Quintal',
     price_per_unit NUMERIC NOT NULL DEFAULT 0,
     total_amount NUMERIC NOT NULL DEFAULT 0,
+    advance_paid NUMERIC NOT NULL DEFAULT 0,
+    net_payable NUMERIC NOT NULL DEFAULT 0,
     date TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
@@ -189,6 +213,22 @@ CREATE TABLE IF NOT EXISTS public.t_workers (
 CREATE INDEX IF NOT EXISTS idx_t_workers_name ON public.t_workers (name);
 CREATE INDEX IF NOT EXISTS idx_t_workers_role ON public.t_workers (role);
 
+-- 6. Test Other Expenditures
+CREATE TABLE IF NOT EXISTS public.t_expenditures (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT 'Other / Miscellaneous',
+    amount NUMERIC NOT NULL DEFAULT 0,
+    paid_to TEXT DEFAULT '',
+    payment_mode TEXT NOT NULL DEFAULT 'Cash',
+    notes TEXT DEFAULT '',
+    date TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_t_expenditures_date ON public.t_expenditures (date DESC);
+CREATE INDEX IF NOT EXISTS idx_t_expenditures_category ON public.t_expenditures (category);
+
 
 -- ====================================================================
 -- SECTION C: ROW LEVEL SECURITY (RLS) POLICIES
@@ -200,12 +240,14 @@ ALTER TABLE public.p_sales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.p_farmers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.p_factories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.p_workers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.p_expenditures ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.t_purchases ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.t_sales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.t_farmers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.t_factories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.t_workers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.t_expenditures ENABLE ROW LEVEL SECURITY;
 
 -- Production policies
 DROP POLICY IF EXISTS "Allow anon all on p_purchases" ON public.p_purchases;
@@ -223,6 +265,9 @@ CREATE POLICY "Allow anon all on p_factories" ON public.p_factories FOR ALL USIN
 DROP POLICY IF EXISTS "Allow anon all on p_workers" ON public.p_workers;
 CREATE POLICY "Allow anon all on p_workers" ON public.p_workers FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow anon all on p_expenditures" ON public.p_expenditures;
+CREATE POLICY "Allow anon all on p_expenditures" ON public.p_expenditures FOR ALL USING (true) WITH CHECK (true);
+
 -- Test policies
 DROP POLICY IF EXISTS "Allow anon all on t_purchases" ON public.t_purchases;
 CREATE POLICY "Allow anon all on t_purchases" ON public.t_purchases FOR ALL USING (true) WITH CHECK (true);
@@ -239,6 +284,9 @@ CREATE POLICY "Allow anon all on t_factories" ON public.t_factories FOR ALL USIN
 DROP POLICY IF EXISTS "Allow anon all on t_workers" ON public.t_workers;
 CREATE POLICY "Allow anon all on t_workers" ON public.t_workers FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow anon all on t_expenditures" ON public.t_expenditures;
+CREATE POLICY "Allow anon all on t_expenditures" ON public.t_expenditures FOR ALL USING (true) WITH CHECK (true);
+
 
 -- ====================================================================
 -- SECTION D: SUPABASE REALTIME (Live Sync for both Production & Test)
@@ -251,10 +299,24 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.p_farmers;
     ALTER PUBLICATION supabase_realtime ADD TABLE public.p_factories;
     ALTER PUBLICATION supabase_realtime ADD TABLE public.p_workers;
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.p_expenditures;
     ALTER PUBLICATION supabase_realtime ADD TABLE public.t_purchases;
     ALTER PUBLICATION supabase_realtime ADD TABLE public.t_sales;
     ALTER PUBLICATION supabase_realtime ADD TABLE public.t_farmers;
     ALTER PUBLICATION supabase_realtime ADD TABLE public.t_factories;
     ALTER PUBLICATION supabase_realtime ADD TABLE public.t_workers;
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.t_expenditures;
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
+
+-- Safe column migrations for existing databases
+ALTER TABLE public.p_purchases ADD COLUMN IF NOT EXISTS suits_kg NUMERIC DEFAULT 0;
+ALTER TABLE public.p_purchases ADD COLUMN IF NOT EXISTS net_quantity NUMERIC DEFAULT 0;
+ALTER TABLE public.p_purchases ADD COLUMN IF NOT EXISTS advance_paid NUMERIC DEFAULT 0;
+ALTER TABLE public.p_purchases ADD COLUMN IF NOT EXISTS net_payable NUMERIC DEFAULT 0;
+
+ALTER TABLE public.t_purchases ADD COLUMN IF NOT EXISTS suits_kg NUMERIC DEFAULT 0;
+ALTER TABLE public.t_purchases ADD COLUMN IF NOT EXISTS net_quantity NUMERIC DEFAULT 0;
+ALTER TABLE public.t_purchases ADD COLUMN IF NOT EXISTS advance_paid NUMERIC DEFAULT 0;
+ALTER TABLE public.t_purchases ADD COLUMN IF NOT EXISTS net_payable NUMERIC DEFAULT 0;
+

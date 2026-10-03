@@ -83,12 +83,14 @@ function syncEnvironment(prefix, envName) {
   const purchases = fetchFromSupabase(prefix + "_purchases");
   const purchaseHeaders = [
     "ID", "Crop Name", "Farmer Name", "Farmer Phone", "Farmer Address",
-    "Farmer Details", "Quantity", "Unit", "Price Per Unit", "Total Amount", "Date", "Created At"
+    "Farmer Details", "Gross Quantity", "Suits (Kg)", "Net Quantity", "Unit", "Price Per Unit", "Total Amount", "Advance Paid", "Net Payable", "Date", "Created At"
   ];
   const purchaseRows = purchases.map(p => [
     p.id || "", p.crop_name || "", p.farmer_name || "", p.farmer_phone || "",
-    p.farmer_address || "", p.farmer_details || "", p.quantity || 0, p.unit || "Quintal",
-    p.price_per_unit || 0, p.total_amount || 0, p.date || "", p.created_at || ""
+    p.farmer_address || "", p.farmer_details || "", p.quantity || 0, p.suits_kg || 0,
+    p.net_quantity != null ? p.net_quantity : p.quantity || 0, p.unit || "Quintal",
+    p.price_per_unit || 0, p.total_amount || 0, p.advance_paid || 0,
+    p.net_payable != null ? p.net_payable : p.total_amount || 0, p.date || "", p.created_at || ""
   ]);
   writeToSheet(ss, envName + "_Purchases", purchaseHeaders, purchaseRows);
   totalRows += purchaseRows.length;
@@ -134,6 +136,16 @@ function syncEnvironment(prefix, envName) {
   ]);
   writeToSheet(ss, envName + "_Workers", workerHeaders, workerRows);
   totalRows += workerRows.length;
+
+  // 6. Sync Other Expenditures
+  const expenditures = fetchFromSupabase(prefix + "_expenditures");
+  const expenditureHeaders = ["ID", "Title / Purpose", "Category", "Amount", "Paid To", "Payment Mode", "Date", "Notes", "Created At"];
+  const expenditureRows = expenditures.map(e => [
+    e.id || "", e.title || "", e.category || "", e.amount || 0,
+    e.paid_to || "", e.payment_mode || "Cash", e.date || "", e.notes || "", e.created_at || ""
+  ]);
+  writeToSheet(ss, envName + "_Expenditures", expenditureHeaders, expenditureRows);
+  totalRows += expenditureRows.length;
 
   return totalRows;
 }
@@ -231,7 +243,10 @@ function doPost(e) {
       sheet.appendRow([
         data.id, data.cropName, data.farmerName, data.farmerPhone || "",
         data.farmerAddress || "", data.farmerDetails || "", data.quantity,
-        data.unit, data.pricePerUnit, data.totalAmount, data.date, new Date().toISOString()
+        data.suitsKg || 0, data.netQuantity != null ? data.netQuantity : data.quantity,
+        data.unit, data.pricePerUnit, data.totalAmount,
+        data.advancePaid || 0, data.netPayable != null ? data.netPayable : data.totalAmount,
+        data.date, new Date().toISOString()
       ]);
       return jsonResponse({ status: "success" });
     }
@@ -248,6 +263,21 @@ function doPost(e) {
         data.id, data.cropName, data.factoryName, data.factoryContact || "",
         data.factoryAddress || "", data.quantity, data.unit, data.soldAmount,
         data.pricePerUnit, data.date, new Date().toISOString()
+      ]);
+      return jsonResponse({ status: "success" });
+    }
+
+    if (action === "addExpenditure") {
+      const data = contents.data;
+      const sheetName = env + "_Expenditures";
+      let sheet = ss.getSheetByName(sheetName);
+      if (!sheet) {
+        syncEnvironment(prefix, env);
+        sheet = ss.getSheetByName(sheetName);
+      }
+      sheet.appendRow([
+        data.id, data.title, data.category, data.amount,
+        data.paidTo || "", data.paymentMode || "Cash", data.date, data.notes || "", new Date().toISOString()
       ]);
       return jsonResponse({ status: "success" });
     }
