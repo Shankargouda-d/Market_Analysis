@@ -1,18 +1,18 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Manages authentication and environment isolation between:
-/// - MarketP: Production Environment (Real Business)
-/// - MarketT: Test Environment (Bug fixing, experimenting, new features)
+/// Manages authentication for Market Analysis.
+/// Exclusively dedicated to MarketP (Production System) with password authentication ('SBT').
 class AuthService {
   AuthService._();
 
   static const String prodUserId = 'MarketP';
-  static const String testUserId = 'MarketT';
+  static const String testUserId = 'MarketT'; // Kept for backwards-compatible offline tests
   static const String _sessionKey = 'market_analysis_active_user_id';
+  static const String systemPassword = 'SBT';
 
   static String? _currentUserId;
 
-  /// Current logged-in User ID ('MarketP' or 'MarketT'), or null if logged out.
+  /// Current logged-in User ID ('MarketP'), or null if logged out.
   static String? get currentUserId => _currentUserId;
 
   /// True if a valid user is logged in.
@@ -20,19 +20,21 @@ class AuthService {
       _currentUserId == prodUserId || _currentUserId == testUserId;
 
   /// True if logged in as MarketP (Production / Real Business).
-  static bool get isProduction => _currentUserId == prodUserId;
+  static bool get isProduction => _currentUserId != testUserId;
 
-  /// True if logged in as MarketT (Testing / Bug fixing).
+  /// True if test mode.
   static bool get isTest => _currentUserId == testUserId;
 
-  /// Prefix for Supabase tables to guarantee 100% physical database separation.
-  /// MarketP -> 'p_' (e.g. p_purchases, p_sales)
-  /// MarketT -> 't_' (e.g. t_purchases, t_sales)
-  static String get tablePrefix => isProduction ? 'p_' : 't_';
+  /// Prefix for tables ('p_' for MarketP, 't_' for MarketT).
+  static String get tablePrefix => isTest ? 't_' : 'p_';
 
   /// Human-readable environment name.
-  static String get environmentName =>
-      isProduction ? 'Production (Real Business)' : 'Testing / Sandbox';
+  static String get environmentName => 'MarketP (Production)';
+
+  /// Verifies if the entered password is correct ('SBT').
+  static bool verifyPassword(String password) {
+    return password.trim().toUpperCase() == systemPassword;
+  }
 
   /// Initializes session on app startup.
   static Future<void> init() async {
@@ -49,18 +51,17 @@ class AuthService {
     }
   }
 
-  /// Logs in with either 'MarketP' or 'MarketT'.
-  /// Returns true if successful, false if invalid User ID.
-  static Future<bool> login(String rawId) async {
+  /// Logs in as MarketP (or custom ID).
+  static Future<bool> login([String rawId = prodUserId]) async {
     final cleanId = rawId.trim();
-    if (cleanId != prodUserId && cleanId != testUserId) {
-      return false;
+    if (cleanId == testUserId) {
+      _currentUserId = testUserId;
+    } else {
+      _currentUserId = prodUserId;
     }
-
-    _currentUserId = cleanId;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_sessionKey, cleanId);
+      await prefs.setString(_sessionKey, _currentUserId!);
     } catch (_) {}
     return true;
   }

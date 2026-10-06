@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../constants/app_constants.dart';
 import '../models/farmer_model.dart';
@@ -21,22 +22,90 @@ class SupabaseService {
 
   static bool _networkUnreachable = false;
 
-  /// Resolves the physically isolated table name based on current user:
-  /// MarketP -> 'p_purchases', 'p_sales', etc.
-  /// MarketT -> 't_purchases', 't_sales', etc.
+  /// When true or running in automated tests, network calls and timers are bypassed.
+  static bool bypassForTesting = false;
+
+  static bool get isRunningInTest {
+    if (bypassForTesting) return true;
+    try {
+      return WidgetsBinding.instance.runtimeType
+          .toString()
+          .contains('TestWidgetsFlutterBinding');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Resolves the table name based on tablePrefix.
+  /// MarketT is completely and permanently disconnected from Supabase.
   static String table(String base) => '${AuthService.tablePrefix}$base';
 
   /// True if Supabase was successfully initialized with valid URL and key.
   static bool get isInitialized =>
       _initialized && AppConstants.isSupabaseConfigured && !_networkUnreachable;
 
-  /// Gets the active Supabase client instance, or null if not configured or unreachable.
+  /// MarketT is completely disconnected from Supabase.
+  /// Only MarketP (Production) is permitted to communicate with Supabase.
+  static bool get canConnectToSupabase =>
+      !isRunningInTest &&
+      isInitialized &&
+      AuthService.isProduction &&
+      AuthService.currentUserId != AuthService.testUserId;
+
+  /// Gets the active Supabase client instance exclusively for MarketP.
+  /// Returns null for MarketT or when unconfigured/unreachable.
   static SupabaseClient? get client =>
-      isInitialized ? Supabase.instance.client : null;
+      canConnectToSupabase ? Supabase.instance.client : null;
 
   /// Resets reachability status to re-attempt connection.
   static void resetReachability() {
     _networkUnreachable = false;
+  }
+
+  /// Checks whether Supabase is successfully connected.
+  static Future<({bool isConnected, String message})> checkConnection() async {
+    if (isRunningInTest) {
+      return (
+        isConnected: false,
+        message: 'Test mode: Cloud connection bypassed',
+      );
+    }
+    if (!AppConstants.isSupabaseConfigured) {
+      return (
+        isConnected: false,
+        message:
+            'Supabase credentials not configured in .env (Offline local storage active)',
+      );
+    }
+    if (AuthService.currentUserId == AuthService.testUserId) {
+      return (
+        isConnected: false,
+        message:
+            'MarketT connection to Supabase is removed. Only MarketP connects to Supabase.',
+      );
+    }
+    if (!_initialized) {
+      try {
+        await init();
+      } catch (e) {
+        return (isConnected: false, message: 'Initialization failed: $e');
+      }
+    }
+    try {
+      final c = Supabase.instance.client;
+      await c.from('p_purchases').select('id').limit(1);
+      _networkUnreachable = false;
+      return (
+        isConnected: true,
+        message: 'Supabase connected successfully for MarketP (Production)!',
+      );
+    } catch (e) {
+      _networkUnreachable = true;
+      return (
+        isConnected: false,
+        message: 'Supabase unreachable or network issue: $e',
+      );
+    }
   }
 
   /// Initializes Supabase on app startup. Safe to call anytime;

@@ -10,10 +10,12 @@ import 'package:market_analysis/screens/analytics_screen.dart';
 import 'package:market_analysis/screens/daily_analysis_detail_screen.dart';
 import 'package:market_analysis/services/auth_service.dart';
 import 'package:market_analysis/services/local_storage_service.dart';
+import 'package:market_analysis/services/supabase_service.dart';
 
 void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
+    SupabaseService.bypassForTesting = true;
     await AuthService.init();
     await dotenv.load(mergeWith: {
       'SUPABASE_URL': 'https://test.supabase.co',
@@ -32,13 +34,17 @@ void main() {
 
     // Verify Login Screen appears initially
     expect(find.text('Market Analysis'), findsOneWidget);
-    expect(find.text('Select Environment / User ID'), findsOneWidget);
-    expect(find.text('Quick Select:'), findsOneWidget);
-    expect(find.text('MarketP'), findsOneWidget);
-    expect(find.text('MarketT'), findsOneWidget);
+    expect(find.text('Enter Password to Login'), findsOneWidget);
+    expect(find.text('MarketP · Production System'), findsOneWidget);
 
-    // Tap MarketP quick select card
-    await tester.tap(find.text('MarketP'));
+    // Enter wrong password to test validation
+    await tester.enterText(find.byType(TextField), 'WRONG');
+    await tester.tap(find.text('Enter Market System'));
+    await tester.pumpAndSettle();
+    expect(find.text('Incorrect password! Enter "SBT" to access.'), findsOneWidget);
+
+    // Enter correct password SBT
+    await tester.enterText(find.byType(TextField), 'SBT');
     await tester.pumpAndSettle();
 
     // Tap "Enter Market System"
@@ -154,12 +160,12 @@ void main() {
     // Tap Logout icon in AppBar
     await tester.tap(find.byIcon(Icons.logout_rounded));
     await tester.pumpAndSettle();
-    expect(find.text('Switch Environment'), findsOneWidget);
+    expect(find.text('Log Out of System'), findsOneWidget);
     await tester.tap(find.text('Log Out'));
     await tester.pumpAndSettle();
 
     // Verify returned to LoginScreen
-    expect(find.text('Select Environment / User ID'), findsOneWidget);
+    expect(find.text('Enter Password to Login'), findsOneWidget);
   });
 
   testWidgets('Daily Analysis full-screen page renders all 10 requirements and handles date selection & back button',

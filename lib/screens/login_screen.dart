@@ -12,22 +12,22 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _idCtrl = TextEditingController();
+  final TextEditingController _passwordCtrl = TextEditingController();
+  bool _obscurePassword = true;
   String? _errorMessage;
   bool _loggingIn = false;
 
-  void _handleLogin([String? overrideId]) async {
-    final id = (overrideId ?? _idCtrl.text).trim();
+  void _handleLogin() async {
+    final password = _passwordCtrl.text.trim();
 
-    if (id.isEmpty) {
-      setState(() => _errorMessage = 'Please enter a User ID');
+    if (password.isEmpty) {
+      setState(() => _errorMessage = 'Please enter password');
       return;
     }
 
-    if (id != AuthService.prodUserId && id != AuthService.testUserId) {
+    if (!AuthService.verifyPassword(password)) {
       setState(() {
-        _errorMessage =
-            'Invalid User ID! Only "${AuthService.prodUserId}" (Production) or "${AuthService.testUserId}" (Testing) are allowed.';
+        _errorMessage = 'Incorrect password! Enter "SBT" to access.';
       });
       return;
     }
@@ -37,7 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _loggingIn = true;
     });
 
-    final success = await AuthService.login(id);
+    final success = await AuthService.login(AuthService.prodUserId);
     if (!mounted) return;
 
     if (success) {
@@ -66,7 +66,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ],
         ),
         content: const Text(
-          'Are you sure you want to remove all local data from this device? All offline cache for both MarketP and MarketT will be permanently deleted.',
+          'Are you sure you want to remove offline cached records from this device? Real database records remain safe in Supabase.',
           style: TextStyle(fontSize: 14),
         ),
         actions: [
@@ -101,19 +101,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _idCtrl.dispose();
+    _passwordCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF3F6F5),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 440),
+            constraints: const BoxConstraints(maxWidth: 420),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -121,13 +121,24 @@ class _LoginScreenState extends State<LoginScreen> {
                 Container(
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.12),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF0D3222), Color(0xFF1E6F52)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF1E6F52).withValues(alpha: 0.3),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: const Icon(
-                    Icons.agriculture,
-                    size: 54,
-                    color: AppColors.primary,
+                    Icons.agriculture_rounded,
+                    size: 46,
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -135,12 +146,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   'Market Analysis',
                   style: TextStyle(
                     fontSize: 26,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.textPrimary,
                     letterSpacing: -0.5,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 const Text(
                   'Agricultural Commodity & Mandi Trading',
                   textAlign: TextAlign.center,
@@ -149,58 +160,97 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: AppColors.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
 
                 // Login Form Card
                 Container(
-                  padding: const EdgeInsets.all(22),
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: AppColors.cardBackground,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppColors.divider),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFD6E4DC)),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
                       ),
                     ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // MarketP Verified Indicator
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.25),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.verified,
+                                size: 14, color: AppColors.primary),
+                            SizedBox(width: 5),
+                            Text(
+                              'MarketP · Production System',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
                       const Text(
-                        'Select Environment / User ID',
+                        'Enter Password to Login',
                         style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
                           color: AppColors.textPrimary,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       const Text(
-                        'Choose which isolated database to connect to:',
+                        'Enter the system password (SBT) to access the mandi desk:',
                         style: TextStyle(
-                            fontSize: 12, color: AppColors.textSecondary),
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 18),
 
-                      // User ID Input
+                      // Password Input
                       TextField(
-                        controller: _idCtrl,
+                        controller: _passwordCtrl,
+                        obscureText: _obscurePassword,
+                        autofocus: true,
                         decoration: InputDecoration(
-                          labelText: 'User ID',
-                          hintText: 'MarketP or MarketT',
-                          prefixIcon: const Icon(Icons.badge_outlined),
-                          suffixIcon: _idCtrl.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () {
-                                    _idCtrl.clear();
-                                    setState(() {});
-                                  },
-                                )
-                              : null,
+                          labelText: 'Password',
+                          hintText: 'Enter password (SBT)',
+                          prefixIcon: const Icon(Icons.lock_outline_rounded,
+                              color: AppColors.primary),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              size: 20,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -209,187 +259,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         onChanged: (_) => setState(() => _errorMessage = null),
                         onSubmitted: (_) => _handleLogin(),
                       ),
-                      const SizedBox(height: 16),
-
-                      const Text(
-                        'Quick Select:',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-
-                      // MarketP Option Card
-                      InkWell(
-                        onTap: () {
-                          _idCtrl.text = AuthService.prodUserId;
-                          setState(() => _errorMessage = null);
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: _idCtrl.text == AuthService.prodUserId
-                                ? AppColors.primary.withValues(alpha: 0.12)
-                                : AppColors.background,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _idCtrl.text == AuthService.prodUserId
-                                  ? AppColors.primary
-                                  : AppColors.divider,
-                              width: _idCtrl.text == AuthService.prodUserId
-                                  ? 1.8
-                                  : 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(Icons.verified,
-                                    color: Colors.white, size: 20),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Wrap(
-                                      crossAxisAlignment:
-                                          WrapCrossAlignment.center,
-                                      spacing: 6,
-                                      children: const [
-                                        Text(
-                                          'MarketP',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 15,
-                                            color: AppColors.primary,
-                                          ),
-                                        ),
-                                        Text(
-                                          '• Production',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.textSecondary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 2),
-                                    const Text(
-                                      'For real business trades, purchases & sales',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-
-                      // MarketT Option Card
-                      InkWell(
-                        onTap: () {
-                          _idCtrl.text = AuthService.testUserId;
-                          setState(() => _errorMessage = null);
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: _idCtrl.text == AuthService.testUserId
-                                ? Colors.amber.withValues(alpha: 0.14)
-                                : AppColors.background,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _idCtrl.text == AuthService.testUserId
-                                  ? Colors.amber.shade800
-                                  : AppColors.divider,
-                              width: _idCtrl.text == AuthService.testUserId
-                                  ? 1.8
-                                  : 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.amber.shade800,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(Icons.bug_report,
-                                    color: Colors.white, size: 20),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Wrap(
-                                      crossAxisAlignment:
-                                          WrapCrossAlignment.center,
-                                      spacing: 6,
-                                      children: [
-                                        Text(
-                                          'MarketT',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 15,
-                                            color: Colors.amber.shade900,
-                                          ),
-                                        ),
-                                        const Text(
-                                          '• Testing & Staging',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.textSecondary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 2),
-                                    const Text(
-                                      'For testing features, bug fixing & experiments',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 22),
+                      const SizedBox(height: 20),
 
                       // Submit Button
                       SizedBox(
                         width: double.infinity,
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: _loggingIn ? null : () => _handleLogin(),
+                          onPressed: _loggingIn ? null : _handleLogin,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                _idCtrl.text == AuthService.testUserId
-                                    ? Colors.amber.shade800
-                                    : AppColors.primary,
+                            backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -405,12 +284,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Text(
-                                  'Enter Market System',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              : const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      'Enter Market System',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    SizedBox(width: 8),
+                                    Icon(Icons.arrow_forward_rounded, size: 18),
+                                  ],
                                 ),
                         ),
                       ),
@@ -419,27 +305,27 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Database Isolation Note
+                // Note
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.08),
+                    color: Colors.green.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                     border:
-                        Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+                        Border.all(color: Colors.green.withValues(alpha: 0.2)),
                   ),
                   child: const Row(
                     children: [
                       Icon(Icons.shield_outlined,
-                          size: 18, color: Colors.blue),
+                          size: 18, color: Colors.green),
                       SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Strict Zero-Overlap: MarketP and MarketT use completely separate Supabase tables (p_* and t_*). Your real business data is 100% protected.',
+                          'Direct Production Mode (MarketP). All transactions, weight slips, and ledgers are securely recorded.',
                           style: TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF0D47A1),
+                            color: Color(0xFF1B5E20),
                             height: 1.3,
                           ),
                         ),
@@ -447,7 +333,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 TextButton.icon(
                   onPressed: _confirmClearData,
                   icon: const Icon(Icons.delete_sweep_outlined,

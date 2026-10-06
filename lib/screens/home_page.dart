@@ -9,6 +9,7 @@ import '../models/sale_model.dart';
 import '../services/auth_service.dart';
 import '../services/data_repository.dart';
 import '../services/local_storage_service.dart';
+import '../services/supabase_service.dart';
 import '../utils/date_utils.dart';
 import 'analytics_screen.dart';
 import 'buy_screen.dart';
@@ -46,10 +47,39 @@ class _HomePageState extends State<HomePage> {
   List<FarmerModel> _allFarmers = [];
   List<FactoryModel> _allFactories = [];
 
+  bool? _supabaseConnected;
+  String? _supabaseStatusMessage;
+  bool _checkingSupabase = false;
+
   @override
   void initState() {
     super.initState();
     _loadHomeData();
+    _verifySupabaseConnection();
+  }
+
+  /// Verifies live Supabase connectivity and updates the AppBar status badge.
+  Future<void> _verifySupabaseConnection() async {
+    if (_checkingSupabase) return;
+    setState(() => _checkingSupabase = true);
+    try {
+      final res = await SupabaseService.checkConnection();
+      if (mounted) {
+        setState(() {
+          _supabaseConnected = res.isConnected;
+          _supabaseStatusMessage = res.message;
+          _checkingSupabase = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _supabaseConnected = false;
+          _supabaseStatusMessage = 'Error connecting to Supabase: $e';
+          _checkingSupabase = false;
+        });
+      }
+    }
   }
 
   /// Loads real database records from local cache and remote repository.
@@ -116,6 +146,8 @@ class _HomePageState extends State<HomePage> {
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
+
+    _verifySupabaseConnection();
   }
 
   /// Navigates to any destination screen in full screen mode.
@@ -358,50 +390,132 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _confirmLogout() {
-    final userId = AuthService.currentUserId ?? 'User';
-    final isProd = AuthService.isProduction;
-
+  void _showSupabaseStatusDialog() {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(Icons.logout_rounded,
-                color: isProd ? AppColors.primary : Colors.amber.shade800),
+            Icon(
+              _supabaseConnected == true
+                  ? Icons.cloud_done_rounded
+                  : Icons.cloud_off_rounded,
+              color: _supabaseConnected == true
+                  ? Colors.green.shade700
+                  : Colors.red.shade700,
+            ),
             const SizedBox(width: 10),
-            const Text('Switch Environment',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text(
+              'Supabase Connection',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Currently active User ID: $userId',
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: isProd
-                    ? AppColors.primary.withValues(alpha: 0.1)
-                    : Colors.amber.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                AuthService.environmentName,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isProd ? AppColors.primary : Colors.amber.shade900,
+            Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _supabaseConnected == true
+                        ? Colors.green.withValues(alpha: 0.12)
+                        : Colors.red.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    _supabaseConnected == true
+                        ? 'CONNECTED (OK)'
+                        : 'DISCONNECTED / OFFLINE',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: _supabaseConnected == true
+                          ? Colors.green.shade800
+                          : Colors.red.shade800,
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                const Text(
+                  'MarketP · Production',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
+            Text(
+              _supabaseStatusMessage ?? 'Supabase state check in progress...',
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textPrimary,
+                height: 1.35,
+              ),
+            ),
+            const Divider(height: 24),
             const Text(
-              'Logging out will return you to the login screen where you can switch between MarketP (Production) and MarketT (Testing).',
+              '• Production Tables: p_* (p_purchases, p_sales, etc.)\n'
+              '• MarketT: Completely & permanently disconnected\n'
+              '• Offline Mode: Local storage cache active if offline',
+              style: TextStyle(
+                fontSize: 11.5,
+                color: AppColors.textSecondary,
+                height: 1.45,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close'),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            icon: const Icon(Icons.refresh, size: 16),
+            label: const Text('Test Connection'),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _verifySupabaseConnection();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmLogout() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.lock_outline_rounded, color: AppColors.primary),
+            SizedBox(width: 10),
+            Text('Log Out of System',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Active User: MarketP (Production System)',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            SizedBox(height: 8),
+            Text(
+              'Logging out will lock the application. You will need to enter the SBT password to access the system again.',
               style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
           ],
@@ -511,6 +625,11 @@ class _HomePageState extends State<HomePage> {
     final totalFarmerDue = todayPurchases.fold<double>(
         0.0, (s, p) => s + p.balanceDue);
 
+    final totalSalesQty = todaySales.fold<double>(
+        0.0, (s, e) => s + e.quantity);
+    final totalSalesAmount = todaySales.fold<double>(
+        0.0, (s, e) => s + e.soldAmount);
+
     final totalExpendituresToday = todayExpenditures.fold<double>(
         0.0, (s, e) => s + e.amount);
 
@@ -543,74 +662,126 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(9),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.25),
-                  width: 1,
-                ),
-              ),
-              child: const Icon(
-                Icons.analytics_rounded,
-                size: 18,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Text(
-              'Market Analysis',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 18,
-                letterSpacing: 0.2,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.35),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    AuthService.isProduction
-                        ? Icons.verified
-                        : Icons.science_outlined,
-                    size: 12,
-                    color: AuthService.isProduction
-                        ? const Color(0xFFB9F6CA)
-                        : const Color(0xFFFFE082),
+        title: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(9),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.25),
+                    width: 1,
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    AuthService.currentUserId ?? 'MarketP',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: AuthService.isProduction
-                          ? const Color(0xFFB9F6CA)
-                          : const Color(0xFFFFE082),
-                      letterSpacing: 0.3,
+                ),
+                child: const Icon(
+                  Icons.analytics_rounded,
+                  size: 18,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Market Analysis',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                  letterSpacing: 0.2,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.35),
+                    width: 1,
+                  ),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.verified,
+                      size: 12,
+                      color: Color(0xFFB9F6CA),
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'MarketP',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFB9F6CA),
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              // Supabase Connection Status Badge
+              InkWell(
+                onTap: _showSupabaseStatusDialog,
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                  decoration: BoxDecoration(
+                    color: (_supabaseConnected == true)
+                        ? Colors.white.withValues(alpha: 0.16)
+                        : const Color(0xFFD32F2F).withValues(alpha: 0.38),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: (_supabaseConnected == true)
+                          ? const Color(0xFFB9F6CA).withValues(alpha: 0.6)
+                          : const Color(0xFFFFCDD2).withValues(alpha: 0.7),
+                      width: 1,
                     ),
                   ),
-                ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        (_supabaseConnected == true)
+                            ? Icons.cloud_done_rounded
+                            : (_checkingSupabase
+                                ? Icons.cloud_sync_rounded
+                                : Icons.cloud_off_rounded),
+                        size: 12,
+                        color: (_supabaseConnected == true)
+                            ? const Color(0xFFB9F6CA)
+                            : const Color(0xFFFFCDD2),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        (_supabaseConnected == true)
+                            ? 'Supabase OK'
+                            : (_checkingSupabase
+                                ? 'Checking...'
+                                : 'Supabase Offline'),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: (_supabaseConnected == true)
+                              ? const Color(0xFFB9F6CA)
+                              : const Color(0xFFFFCDD2),
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           Container(
@@ -795,113 +966,161 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Grid of 7 options that navigate full-screen
-                  GridView.count(
-                    crossAxisCount: 2,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 1.30,
-                    children: [
-                      // 1. BUY
-                      _ModuleOptionCard(
-                        title: 'Buy',
-                        subtitle: 'Farmer purchases & slips',
-                        badgeText: '${todayPurchases.length} today',
-                        icon: Icons.shopping_cart_rounded,
-                        color: AppColors.buy,
-                        onTap: () => _openFullScreen(
-                          'Buy / Purchase Produce',
-                          AppColors.buy,
-                          const BuyScreen(),
-                        ),
-                      ),
+                  // Responsive Grid of 7 options with Live Summaries & Compact Logos
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final width = constraints.maxWidth;
+                      final int crossAxisCount = width >= 1100
+                          ? 4
+                          : (width >= 720 ? 3 : 2);
+                      final double childAspectRatio = width >= 1100
+                          ? 1.42
+                          : (width >= 720 ? 1.35 : 1.22);
 
-                      // 2. SELL
-                      _ModuleOptionCard(
-                        title: 'Sell',
-                        subtitle: 'Factory dispatch invoices',
-                        badgeText: '${todaySales.length} today',
-                        icon: Icons.storefront_rounded,
-                        color: AppColors.sell,
-                        onTap: () => _openFullScreen(
-                          'Sell / Factory Dispatch',
-                          AppColors.sell,
-                          const SellScreen(),
-                        ),
-                      ),
+                      return GridView.count(
+                        crossAxisCount: crossAxisCount,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: childAspectRatio,
+                        children: [
+                          // 1. BUY
+                          _ModuleOptionCard(
+                            title: 'Buy',
+                            subtitle: 'Farmer purchases & slips',
+                            badgeText: '${todayPurchases.length} today',
+                            icon: Icons.shopping_cart_rounded,
+                            color: AppColors.buy,
+                            summaryMetricPrimary: todayPurchases.isEmpty
+                                ? '₹0.00 · 0.0 kg'
+                                : '₹${totalPurchaseAmount.toStringAsFixed(0)} · ${totalKg.toStringAsFixed(1)} kg',
+                            summaryMetricSecondary: todayPurchases.isEmpty
+                                ? '0 purchases recorded today'
+                                : 'Paid: ₹${totalAmountPaidFarmers.toStringAsFixed(0)} | Due: ₹${totalFarmerDue.toStringAsFixed(0)}',
+                            onTap: () => _openFullScreen(
+                              'Buy / Purchase Produce',
+                              AppColors.buy,
+                              const BuyScreen(),
+                            ),
+                          ),
 
-                      // 3. ANALYTICS
-                      _ModuleOptionCard(
-                        title: 'Analytics',
-                        subtitle: 'Daily & historical data',
-                        badgeText: 'Reports',
-                        icon: Icons.bar_chart_rounded,
-                        color: AppColors.analytics,
-                        onTap: () => _openFullScreen(
-                          'Daily & Date Analysis',
-                          AppColors.analytics,
-                          const AnalyticsScreen(),
-                        ),
-                      ),
+                          // 2. SELL
+                          _ModuleOptionCard(
+                            title: 'Sell',
+                            subtitle: 'Factory dispatch invoices',
+                            badgeText: '${todaySales.length} today',
+                            icon: Icons.storefront_rounded,
+                            color: AppColors.sell,
+                            summaryMetricPrimary: todaySales.isEmpty
+                                ? '₹0.00 · 0 qty'
+                                : '₹${totalSalesAmount.toStringAsFixed(0)} · ${totalSalesQty.toStringAsFixed(1)} units',
+                            summaryMetricSecondary: todaySales.isEmpty
+                                ? '0 dispatches recorded today'
+                                : '${todaySales.length} dispatch entry recorded',
+                            onTap: () => _openFullScreen(
+                              'Sell / Factory Dispatch',
+                              AppColors.sell,
+                              const SellScreen(),
+                            ),
+                          ),
 
-                      // 4. EXPENDITURE
-                      _ModuleOptionCard(
-                        title: 'Expenditure',
-                        subtitle: 'Mandi operational expenses',
-                        badgeText: '${todayExpenditures.length} today',
-                        icon: Icons.receipt_long_rounded,
-                        color: AppColors.expenditure,
-                        onTap: () => _openFullScreen(
-                          'Other Expenditures',
-                          AppColors.expenditure,
-                          const ExpenditureScreen(),
-                        ),
-                      ),
+                          // 3. ANALYTICS
+                          _ModuleOptionCard(
+                            title: 'Analytics',
+                            subtitle: 'Daily & historical data',
+                            badgeText: 'Reports',
+                            icon: Icons.bar_chart_rounded,
+                            color: AppColors.analytics,
+                            summaryMetricPrimary:
+                                'Turnover: ₹${(totalPurchaseAmount + totalSalesAmount).toStringAsFixed(0)}',
+                            summaryMetricSecondary:
+                                'Day ledger, P&L & market trends',
+                            onTap: () => _openFullScreen(
+                              'Daily & Date Analysis',
+                              AppColors.analytics,
+                              const AnalyticsScreen(),
+                            ),
+                          ),
 
-                      // 5. SETTLEMENT
-                      _ModuleOptionCard(
-                        title: 'Settlement',
-                        subtitle: 'Day closing & cash float',
-                        badgeText: isSettled ? 'Settled ₹0.00' : 'Open',
-                        icon: Icons.account_balance_wallet_rounded,
-                        color: AppColors.settlement,
-                        onTap: () => _openFullScreen(
-                          'Daily Settlement',
-                          AppColors.settlement,
-                          const DailySettlementScreen(),
-                        ),
-                      ),
+                          // 4. EXPENDITURE
+                          _ModuleOptionCard(
+                            title: 'Expenditure',
+                            subtitle: 'Mandi operational expenses',
+                            badgeText: '${todayExpenditures.length} today',
+                            icon: Icons.receipt_long_rounded,
+                            color: AppColors.expenditure,
+                            summaryMetricPrimary: todayExpenditures.isEmpty
+                                ? '₹0.00 Spent'
+                                : '₹${totalExpendituresToday.toStringAsFixed(0)} Mandi Expenses',
+                            summaryMetricSecondary: todayExpenditures.isEmpty
+                                ? 'No expenses recorded'
+                                : '${todayExpenditures.length} expense entry recorded',
+                            onTap: () => _openFullScreen(
+                              'Other Expenditures',
+                              AppColors.expenditure,
+                              const ExpenditureScreen(),
+                            ),
+                          ),
 
-                      // 6. FARMERS & WORKERS
-                      _ModuleOptionCard(
-                        title: 'Farmers & Workers',
-                        subtitle: 'Ledgers & worker contacts',
-                        badgeText: '${_allFarmers.length} farmers',
-                        icon: Icons.people_alt_rounded,
-                        color: AppColors.farmer,
-                        onTap: () => _openFullScreen(
-                          'Farmers & Workers',
-                          AppColors.farmer,
-                          const FarmerDetailsScreen(),
-                        ),
-                      ),
+                          // 5. SETTLEMENT
+                          _ModuleOptionCard(
+                            title: 'Settlement',
+                            subtitle: 'Day closing & cash float',
+                            badgeText: isSettled ? 'Settled ₹0.00' : 'Open',
+                            icon: Icons.account_balance_wallet_rounded,
+                            color: AppColors.settlement,
+                            summaryMetricPrimary: isSettled
+                                ? 'Settled (₹0.00)'
+                                : 'Remaining: ₹${remainingAmount.toStringAsFixed(0)}',
+                            summaryMetricSecondary: isSettled
+                                ? 'Day ledger closed'
+                                : 'Deposits: ₹${totalDeposits.toStringAsFixed(0)} float',
+                            onTap: () => _openFullScreen(
+                              'Daily Settlement',
+                              AppColors.settlement,
+                              const DailySettlementScreen(),
+                            ),
+                          ),
 
-                      // 7. FACTORIES
-                      _ModuleOptionCard(
-                        title: 'Factories',
-                        subtitle: 'Factory directory & ledgers',
-                        badgeText: '${_allFactories.length} registered',
-                        icon: Icons.factory_rounded,
-                        color: AppColors.factory,
-                        onTap: () => _openFullScreen(
-                          'Factory Directory',
-                          AppColors.factory,
-                          const FactoryDetailsScreen(),
-                        ),
-                      ),
-                    ],
+                          // 6. FARMERS & WORKERS
+                          _ModuleOptionCard(
+                            title: 'Farmers & Workers',
+                            subtitle: 'Ledgers & worker contacts',
+                            badgeText: '${_allFarmers.length} farmers',
+                            icon: Icons.people_alt_rounded,
+                            color: AppColors.farmer,
+                            summaryMetricPrimary:
+                                '${_allFarmers.length} Farmers Registered',
+                            summaryMetricSecondary:
+                                'Farmer profiles, ledgers & dues',
+                            onTap: () => _openFullScreen(
+                              'Farmers & Workers',
+                              AppColors.farmer,
+                              const FarmerDetailsScreen(),
+                            ),
+                          ),
+
+                          // 7. FACTORIES
+                          _ModuleOptionCard(
+                            title: 'Factories',
+                            subtitle: 'Factory directory & ledgers',
+                            badgeText: '${_allFactories.length} registered',
+                            icon: Icons.factory_rounded,
+                            color: AppColors.factory,
+                            summaryMetricPrimary:
+                                '${_allFactories.length} Factories Registered',
+                            summaryMetricSecondary:
+                                'Directories & dispatch ledgers',
+                            onTap: () => _openFullScreen(
+                              'Factory Directory',
+                              AppColors.factory,
+                              const FactoryDetailsScreen(),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -1608,6 +1827,8 @@ class _ModuleOptionCard extends StatelessWidget {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
+  final String summaryMetricPrimary;
+  final String summaryMetricSecondary;
 
   const _ModuleOptionCard({
     required this.title,
@@ -1616,6 +1837,8 @@ class _ModuleOptionCard extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.onTap,
+    required this.summaryMetricPrimary,
+    required this.summaryMetricSecondary,
   });
 
   @override
@@ -1625,7 +1848,7 @@ class _ModuleOptionCard extends StatelessWidget {
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: color.withValues(alpha: 0.18),
+          color: color.withValues(alpha: 0.2),
           width: 1.2,
         ),
         boxShadow: [
@@ -1660,16 +1883,17 @@ class _ModuleOptionCard extends StatelessWidget {
               ),
 
               Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+                padding: const EdgeInsets.fromLTRB(14, 11, 12, 11),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    // Top header: Module icon + Live count badge
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: const EdgeInsets.all(7),
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
@@ -1679,7 +1903,7 @@ class _ModuleOptionCard extends StatelessWidget {
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(9),
                             boxShadow: [
                               BoxShadow(
                                 color: color.withValues(alpha: 0.3),
@@ -1688,7 +1912,7 @@ class _ModuleOptionCard extends StatelessWidget {
                               ),
                             ],
                           ),
-                          child: Icon(icon, color: Colors.white, size: 18),
+                          child: Icon(icon, color: Colors.white, size: 16),
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -1711,6 +1935,72 @@ class _ModuleOptionCard extends StatelessWidget {
                         ),
                       ],
                     ),
+
+                    // Middle: Live Summary Container (replaces blank whitespace)
+                    // with a tastefully decreased-size logo / watermark icon
+                    Container(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(
+                          color: color.withValues(alpha: 0.12),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  summaryMetricPrimary,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: color,
+                                    letterSpacing: -0.2,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 1.5),
+                                Text(
+                                  summaryMetricSecondary,
+                                  style: const TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          // Subtle, decreased-size emblem/logo watermark (size: 14)
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.08),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              icon,
+                              size: 14,
+                              color: color.withValues(alpha: 0.65),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Bottom: Title, Subtitle and navigation arrow
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -1722,16 +2012,16 @@ class _ModuleOptionCard extends StatelessWidget {
                               Text(
                                 title,
                                 style: const TextStyle(
-                                  fontSize: 15,
+                                  fontSize: 14.5,
                                   fontWeight: FontWeight.bold,
                                   color: AppColors.textPrimary,
                                 ),
                               ),
-                              const SizedBox(height: 2),
+                              const SizedBox(height: 1.5),
                               Text(
                                 subtitle,
                                 style: const TextStyle(
-                                  fontSize: 10,
+                                  fontSize: 9.5,
                                   color: AppColors.textSecondary,
                                 ),
                                 maxLines: 1,
