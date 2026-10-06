@@ -391,6 +391,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showSupabaseStatusDialog() {
+    final isProd = AuthService.isProduction;
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -398,17 +400,21 @@ class _HomePageState extends State<HomePage> {
         title: Row(
           children: [
             Icon(
-              _supabaseConnected == true
-                  ? Icons.cloud_done_rounded
-                  : Icons.cloud_off_rounded,
-              color: _supabaseConnected == true
-                  ? Colors.green.shade700
-                  : Colors.red.shade700,
+              isProd
+                  ? (_supabaseConnected == true
+                      ? Icons.cloud_done_rounded
+                      : Icons.cloud_off_rounded)
+                  : Icons.science_outlined,
+              color: isProd
+                  ? (_supabaseConnected == true
+                      ? Colors.green.shade700
+                      : Colors.red.shade700)
+                  : Colors.amber.shade800,
             ),
             const SizedBox(width: 10),
-            const Text(
-              'Supabase Connection',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            Text(
+              isProd ? 'Supabase Connection' : 'MarketT Sandbox Status',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
           ],
         ),
@@ -422,34 +428,42 @@ class _HomePageState extends State<HomePage> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _supabaseConnected == true
-                        ? Colors.green.withValues(alpha: 0.12)
-                        : Colors.red.withValues(alpha: 0.12),
+                    color: isProd
+                        ? (_supabaseConnected == true
+                            ? Colors.green.withValues(alpha: 0.12)
+                            : Colors.red.withValues(alpha: 0.12))
+                        : Colors.amber.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    _supabaseConnected == true
-                        ? 'CONNECTED (OK)'
-                        : 'DISCONNECTED / OFFLINE',
+                    isProd
+                        ? (_supabaseConnected == true
+                            ? 'CONNECTED (OK)'
+                            : 'DISCONNECTED / OFFLINE')
+                        : 'OFFLINE SANDBOX (NO DB)',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: _supabaseConnected == true
-                          ? Colors.green.shade800
-                          : Colors.red.shade800,
+                      color: isProd
+                          ? (_supabaseConnected == true
+                              ? Colors.green.shade800
+                              : Colors.red.shade800)
+                          : Colors.amber.shade900,
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Text(
-                  'MarketP · Production',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                Text(
+                  isProd ? 'MarketP · Production' : 'MarketT · Testing',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
             const SizedBox(height: 12),
             Text(
-              _supabaseStatusMessage ?? 'Supabase state check in progress...',
+              isProd
+                  ? (_supabaseStatusMessage ?? 'Supabase state check in progress...')
+                  : 'MarketT is an offline sandbox with zero Supabase connection. Test data is temporary and will not affect real production data.',
               style: const TextStyle(
                 fontSize: 13,
                 color: AppColors.textPrimary,
@@ -457,11 +471,15 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             const Divider(height: 24),
-            const Text(
-              '• Production Tables: p_* (p_purchases, p_sales, etc.)\n'
-              '• MarketT: Completely & permanently disconnected\n'
-              '• Offline Mode: Local storage cache active if offline',
-              style: TextStyle(
+            Text(
+              isProd
+                  ? '• Production Tables: p_* (p_purchases, p_sales, etc.)\n'
+                      '• Connected directly to your Supabase project\n'
+                      '• Historical data is fetched and synced on login'
+                  : '• Supabase connection is completely removed for MarketT\n'
+                      '• Safe sandbox for checking and experimenting\n'
+                      '• To access real database records, log into MarketP with SBT',
+              style: const TextStyle(
                 fontSize: 11.5,
                 color: AppColors.textSecondary,
                 height: 1.45,
@@ -474,48 +492,53 @@ class _HomePageState extends State<HomePage> {
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Close'),
           ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          if (isProd)
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('Test Connection'),
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _verifySupabaseConnection();
+              },
             ),
-            icon: const Icon(Icons.refresh, size: 16),
-            label: const Text('Test Connection'),
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              _verifySupabaseConnection();
-            },
-          ),
         ],
       ),
     );
   }
 
   void _confirmLogout() {
+    final currentId = AuthService.currentUserId ?? 'User';
+    final isProd = AuthService.isProduction;
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.lock_outline_rounded, color: AppColors.primary),
-            SizedBox(width: 10),
-            Text('Log Out of System',
+            Icon(Icons.logout_rounded,
+                color: isProd ? AppColors.primary : Colors.amber.shade800),
+            const SizedBox(width: 10),
+            const Text('Switch Environment',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ],
         ),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Active User: MarketP (Production System)',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            SizedBox(height: 8),
-            Text(
-              'Logging out will lock the application. You will need to enter the SBT password to access the system again.',
+            Text('Active User: $currentId (${AuthService.environmentName})',
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text(
+              'Logging out will return you to the login screen where you can switch between MarketP (Production with SBT password) and MarketT (Offline Sandbox).',
               style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
           ],
@@ -727,7 +750,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(width: 6),
-              // Supabase Connection Status Badge
+              // Supabase / Sandbox Connection Status Badge
               InkWell(
                 onTap: _showSupabaseStatusDialog,
                 borderRadius: BorderRadius.circular(14),
@@ -735,14 +758,18 @@ class _HomePageState extends State<HomePage> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
                   decoration: BoxDecoration(
-                    color: (_supabaseConnected == true)
-                        ? Colors.white.withValues(alpha: 0.16)
-                        : const Color(0xFFD32F2F).withValues(alpha: 0.38),
+                    color: AuthService.isProduction
+                        ? ((_supabaseConnected == true)
+                            ? Colors.white.withValues(alpha: 0.16)
+                            : const Color(0xFFD32F2F).withValues(alpha: 0.38))
+                        : Colors.amber.withValues(alpha: 0.22),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: (_supabaseConnected == true)
-                          ? const Color(0xFFB9F6CA).withValues(alpha: 0.6)
-                          : const Color(0xFFFFCDD2).withValues(alpha: 0.7),
+                      color: AuthService.isProduction
+                          ? ((_supabaseConnected == true)
+                              ? const Color(0xFFB9F6CA).withValues(alpha: 0.6)
+                              : const Color(0xFFFFCDD2).withValues(alpha: 0.7))
+                          : Colors.amber.shade300,
                       width: 1,
                     ),
                   ),
@@ -750,29 +777,37 @@ class _HomePageState extends State<HomePage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        (_supabaseConnected == true)
-                            ? Icons.cloud_done_rounded
-                            : (_checkingSupabase
-                                ? Icons.cloud_sync_rounded
-                                : Icons.cloud_off_rounded),
+                        AuthService.isProduction
+                            ? ((_supabaseConnected == true)
+                                ? Icons.cloud_done_rounded
+                                : (_checkingSupabase
+                                    ? Icons.cloud_sync_rounded
+                                    : Icons.cloud_off_rounded))
+                            : Icons.cloud_off_rounded,
                         size: 12,
-                        color: (_supabaseConnected == true)
-                            ? const Color(0xFFB9F6CA)
-                            : const Color(0xFFFFCDD2),
+                        color: AuthService.isProduction
+                            ? ((_supabaseConnected == true)
+                                ? const Color(0xFFB9F6CA)
+                                : const Color(0xFFFFCDD2))
+                            : const Color(0xFFFFE082),
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        (_supabaseConnected == true)
-                            ? 'Supabase OK'
-                            : (_checkingSupabase
-                                ? 'Checking...'
-                                : 'Supabase Offline'),
+                        AuthService.isProduction
+                            ? ((_supabaseConnected == true)
+                                ? 'Supabase OK'
+                                : (_checkingSupabase
+                                    ? 'Checking...'
+                                    : 'Supabase Offline'))
+                            : 'Offline Sandbox (No DB)',
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: (_supabaseConnected == true)
-                              ? const Color(0xFFB9F6CA)
-                              : const Color(0xFFFFCDD2),
+                          color: AuthService.isProduction
+                              ? ((_supabaseConnected == true)
+                                  ? const Color(0xFFB9F6CA)
+                                  : const Color(0xFFFFCDD2))
+                              : const Color(0xFFFFE082),
                           letterSpacing: 0.2,
                         ),
                       ),

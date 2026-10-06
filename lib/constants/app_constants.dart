@@ -56,6 +56,5 @@ class AppConstants {
       supabaseUrl.isNotEmpty &&
       supabaseUrl.startsWith('http') &&
       !supabaseUrl.contains('your-project-id') &&
-      !supabaseUrl.contains('ttrgrhrpvxyrsvkjqhmk') &&
       supabaseAnonKey.isNotEmpty;
 }

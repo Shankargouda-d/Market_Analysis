@@ -20,7 +20,7 @@ class AuthService {
       _currentUserId == prodUserId || _currentUserId == testUserId;
 
   /// True if logged in as MarketP (Production / Real Business).
-  static bool get isProduction => _currentUserId != testUserId;
+  static bool get isProduction => _currentUserId == prodUserId;
 
   /// True if test mode.
   static bool get isTest => _currentUserId == testUserId;
@@ -29,7 +29,8 @@ class AuthService {
   static String get tablePrefix => isTest ? 't_' : 'p_';
 
   /// Human-readable environment name.
-  static String get environmentName => 'MarketP (Production)';
+  static String get environmentName =>
+      isProduction ? 'MarketP (Production)' : 'MarketT (Sandbox / Test)';
 
   /// Verifies if the entered password is correct ('SBT').
   static bool verifyPassword(String password) {

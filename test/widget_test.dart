@@ -32,16 +32,23 @@ void main() {
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
 
-    // Verify Login Screen appears initially
+    // Verify Login Screen appears initially with MarketP and MarketT
     expect(find.text('Market Analysis'), findsOneWidget);
-    expect(find.text('Enter Password to Login'), findsOneWidget);
-    expect(find.text('MarketP · Production System'), findsOneWidget);
+    expect(find.text('Select Environment / User ID'), findsOneWidget);
+    expect(find.text('Quick Select:'), findsOneWidget);
+    expect(find.text('MarketP'), findsOneWidget);
+    expect(find.text('MarketT'), findsOneWidget);
+
+    // Tap MarketP quick select card
+    await tester.tap(find.text('MarketP'));
+    await tester.pumpAndSettle();
 
     // Enter wrong password to test validation
     await tester.enterText(find.byType(TextField), 'WRONG');
     await tester.tap(find.text('Enter Market System'));
     await tester.pumpAndSettle();
-    expect(find.text('Incorrect password! Enter "SBT" to access.'), findsOneWidget);
+    expect(
+        find.text('Incorrect password! Enter "SBT" to access.'), findsOneWidget);
 
     // Enter correct password SBT
     await tester.enterText(find.byType(TextField), 'SBT');
@@ -160,12 +167,12 @@ void main() {
     // Tap Logout icon in AppBar
     await tester.tap(find.byIcon(Icons.logout_rounded));
     await tester.pumpAndSettle();
-    expect(find.text('Log Out of System'), findsOneWidget);
+    expect(find.text('Switch Environment'), findsOneWidget);
     await tester.tap(find.text('Log Out'));
     await tester.pumpAndSettle();
 
     // Verify returned to LoginScreen
-    expect(find.text('Enter Password to Login'), findsOneWidget);
+    expect(find.text('Select Environment / User ID'), findsOneWidget);
   });
 
   testWidgets('Daily Analysis full-screen page renders all 10 requirements and handles date selection & back button',

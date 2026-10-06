@@ -21,6 +21,7 @@ class SupabaseService {
   static bool _initialized = false;
 
   static bool _networkUnreachable = false;
+  static bool get isNetworkUnreachable => _networkUnreachable;
 
   /// When true or running in automated tests, network calls and timers are bypassed.
   static bool bypassForTesting = false;
@@ -42,7 +43,7 @@ class SupabaseService {
 
   /// True if Supabase was successfully initialized with valid URL and key.
   static bool get isInitialized =>
-      _initialized && AppConstants.isSupabaseConfigured && !_networkUnreachable;
+      _initialized && AppConstants.isSupabaseConfigured;
 
   /// MarketT is completely disconnected from Supabase.
   /// Only MarketP (Production) is permitted to communicate with Supabase.
@@ -70,18 +71,18 @@ class SupabaseService {
         message: 'Test mode: Cloud connection bypassed',
       );
     }
+    if (AuthService.currentUserId == AuthService.testUserId) {
+      return (
+        isConnected: false,
+        message:
+            'MarketT is an offline sandbox (Zero Supabase connection). Only MarketP connects to Supabase.',
+      );
+    }
     if (!AppConstants.isSupabaseConfigured) {
       return (
         isConnected: false,
         message:
             'Supabase credentials not configured in .env (Offline local storage active)',
-      );
-    }
-    if (AuthService.currentUserId == AuthService.testUserId) {
-      return (
-        isConnected: false,
-        message:
-            'MarketT connection to Supabase is removed. Only MarketP connects to Supabase.',
       );
     }
     if (!_initialized) {
