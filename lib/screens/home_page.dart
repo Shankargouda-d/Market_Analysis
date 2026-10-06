@@ -527,22 +527,57 @@ class _HomePageState extends State<HomePage> {
         : (_todaySettlement?.effectiveRemainingAmount ?? calculatedRemaining);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF3F6F5),
       appBar: AppBar(
-        backgroundColor: AppColors.primary,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Color(0xFF0D3222), // deep forest green
+                Color(0xFF134E39), // dark emerald
+                Color(0xFF1E6F52), // rich agricultural emerald
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.25),
+                  width: 1,
+                ),
+              ),
+              child: const Icon(
+                Icons.analytics_rounded,
+                size: 18,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 8),
             const Text(
               'Market Analysis',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+                letterSpacing: 0.2,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(width: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.22),
-                borderRadius: BorderRadius.circular(12),
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: Colors.white.withValues(alpha: 0.35),
                   width: 1,
@@ -555,7 +590,7 @@ class _HomePageState extends State<HomePage> {
                     AuthService.isProduction
                         ? Icons.verified
                         : Icons.science_outlined,
-                    size: 13,
+                    size: 12,
                     color: AuthService.isProduction
                         ? const Color(0xFFB9F6CA)
                         : const Color(0xFFFFE082),
@@ -567,8 +602,8 @@ class _HomePageState extends State<HomePage> {
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       color: AuthService.isProduction
-                        ? const Color(0xFFB9F6CA)
-                        : const Color(0xFFFFE082),
+                          ? const Color(0xFFB9F6CA)
+                          : const Color(0xFFFFE082),
                       letterSpacing: 0.3,
                     ),
                   ),
@@ -578,20 +613,43 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add_card),
-            tooltip: 'Add Deposit',
-            onPressed: _showAddDepositDialog,
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.add_card, color: Colors.white, size: 20),
+              tooltip: 'Add Deposit',
+              onPressed: _showAddDepositDialog,
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.delete_sweep_outlined),
-            tooltip: 'Clear All Local Data',
-            onPressed: _confirmClearLocalStorage,
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.delete_sweep_outlined,
+                  color: Colors.white, size: 20),
+              tooltip: 'Clear All Local Data',
+              onPressed: _confirmClearLocalStorage,
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            tooltip: 'Switch User / Logout',
-            onPressed: _confirmLogout,
+          Container(
+            margin: const EdgeInsets.only(left: 2, right: 10, top: 8, bottom: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.logout_rounded,
+                  color: Colors.white, size: 20),
+              tooltip: 'Switch User / Logout',
+              onPressed: _confirmLogout,
+            ),
           ),
         ],
       ),
@@ -600,7 +658,7 @@ class _HomePageState extends State<HomePage> {
           : RefreshIndicator(
               onRefresh: () => _loadHomeData(syncRemote: true),
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
                 children: [
                   // ========================================================
                   // 1. FRONT SCREEN HERO: DAILY ANALYSIS BASED ON DEPOSITS
@@ -632,48 +690,126 @@ class _HomePageState extends State<HomePage> {
                       );
                     },
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
                   // ========================================================
-                  // 2. BUSINESS OPERATIONS GRID (Sell, Buy, Analysis, etc.)
+                  // 2. QUICK JUMP ACTIONS (Fast entry shortcuts)
+                  // ========================================================
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _QuickJumpPill(
+                          icon: Icons.add_shopping_cart,
+                          label: '+ Buy Produce',
+                          color: AppColors.buy,
+                          onTap: () => _openFullScreen(
+                            'Buy / Purchase Produce',
+                            AppColors.buy,
+                            const BuyScreen(),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _QuickJumpPill(
+                          icon: Icons.storefront,
+                          label: '+ Sell Produce',
+                          color: AppColors.sell,
+                          onTap: () => _openFullScreen(
+                            'Sell / Factory Dispatch',
+                            AppColors.sell,
+                            const SellScreen(),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _QuickJumpPill(
+                          icon: Icons.receipt_long,
+                          label: '+ Mandi Expense',
+                          color: AppColors.expenditure,
+                          onTap: () => _openFullScreen(
+                            'Other Expenditures',
+                            AppColors.expenditure,
+                            const ExpenditureScreen(),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _QuickJumpPill(
+                          icon: Icons.insights_rounded,
+                          label: 'Analytics Reports',
+                          color: AppColors.analytics,
+                          onTap: () => _openFullScreen(
+                            'Daily & Date Analysis',
+                            AppColors.analytics,
+                            const AnalyticsScreen(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // ========================================================
+                  // 3. BUSINESS OPERATIONS GRID (Sell, Buy, Analysis, etc.)
                   // ========================================================
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Business Modules',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                        ),
+                      Row(
+                        children: [
+                          Container(
+                            width: 4,
+                            height: 18,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Business Modules',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                              letterSpacing: 0.1,
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        'Tap any option for full screen',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textSecondary,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          'Tap any option for full screen',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
 
-                  // Grid of 8 options that navigate full-screen
+                  // Grid of 7 options that navigate full-screen
                   GridView.count(
                     crossAxisCount: 2,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
-                    childAspectRatio: 1.35,
+                    childAspectRatio: 1.30,
                     children: [
                       // 1. BUY
                       _ModuleOptionCard(
                         title: 'Buy',
-                        subtitle: 'Farmer crop purchases & weight slips',
+                        subtitle: 'Farmer purchases & slips',
                         badgeText: '${todayPurchases.length} today',
-                        icon: Icons.shopping_cart,
+                        icon: Icons.shopping_cart_rounded,
                         color: AppColors.buy,
                         onTap: () => _openFullScreen(
                           'Buy / Purchase Produce',
@@ -685,9 +821,9 @@ class _HomePageState extends State<HomePage> {
                       // 2. SELL
                       _ModuleOptionCard(
                         title: 'Sell',
-                        subtitle: 'Factory crop sales & dispatch invoices',
+                        subtitle: 'Factory dispatch invoices',
                         badgeText: '${todaySales.length} today',
-                        icon: Icons.storefront,
+                        icon: Icons.storefront_rounded,
                         color: AppColors.sell,
                         onTap: () => _openFullScreen(
                           'Sell / Factory Dispatch',
@@ -699,9 +835,9 @@ class _HomePageState extends State<HomePage> {
                       // 3. ANALYTICS
                       _ModuleOptionCard(
                         title: 'Analytics',
-                        subtitle: 'Daily & historical date-wise analysis',
+                        subtitle: 'Daily & historical data',
                         badgeText: 'Reports',
-                        icon: Icons.bar_chart,
+                        icon: Icons.bar_chart_rounded,
                         color: AppColors.analytics,
                         onTap: () => _openFullScreen(
                           'Daily & Date Analysis',
@@ -713,9 +849,9 @@ class _HomePageState extends State<HomePage> {
                       // 4. EXPENDITURE
                       _ModuleOptionCard(
                         title: 'Expenditure',
-                        subtitle: 'Operational & mandi expenses',
+                        subtitle: 'Mandi operational expenses',
                         badgeText: '${todayExpenditures.length} today',
-                        icon: Icons.receipt_long,
+                        icon: Icons.receipt_long_rounded,
                         color: AppColors.expenditure,
                         onTap: () => _openFullScreen(
                           'Other Expenditures',
@@ -727,9 +863,9 @@ class _HomePageState extends State<HomePage> {
                       // 5. SETTLEMENT
                       _ModuleOptionCard(
                         title: 'Settlement',
-                        subtitle: 'Daily account closing & deposit float',
+                        subtitle: 'Day closing & cash float',
                         badgeText: isSettled ? 'Settled ₹0.00' : 'Open',
-                        icon: Icons.account_balance_wallet,
+                        icon: Icons.account_balance_wallet_rounded,
                         color: AppColors.settlement,
                         onTap: () => _openFullScreen(
                           'Daily Settlement',
@@ -741,9 +877,9 @@ class _HomePageState extends State<HomePage> {
                       // 6. FARMERS & WORKERS
                       _ModuleOptionCard(
                         title: 'Farmers & Workers',
-                        subtitle: 'Farmer & worker contacts, ledgers',
+                        subtitle: 'Ledgers & worker contacts',
                         badgeText: '${_allFarmers.length} farmers',
-                        icon: Icons.people_alt_outlined,
+                        icon: Icons.people_alt_rounded,
                         color: AppColors.farmer,
                         onTap: () => _openFullScreen(
                           'Farmers & Workers',
@@ -755,9 +891,9 @@ class _HomePageState extends State<HomePage> {
                       // 7. FACTORIES
                       _ModuleOptionCard(
                         title: 'Factories',
-                        subtitle: 'Factory directory & sale invoices',
+                        subtitle: 'Factory directory & ledgers',
                         badgeText: '${_allFactories.length} registered',
-                        icon: Icons.factory,
+                        icon: Icons.factory_rounded,
                         color: AppColors.factory,
                         onTap: () => _openFullScreen(
                           'Factory Directory',
@@ -767,7 +903,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
@@ -811,85 +947,110 @@ class _FrontDailyAnalysisCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Daily Remaining Amount (deposit - purchasedAmount - expenditure amount)
     final isNegative = !isSettled && remainingAmount < 0;
-    final effectiveColor = isSettled
-        ? Colors.green.shade800
-        : (isNegative ? Colors.red.shade700 : const Color(0xFF2E7D32));
-    final effectiveBg = isSettled
-        ? Colors.green.withValues(alpha: 0.08)
-        : (isNegative
-            ? Colors.red.withValues(alpha: 0.08)
-            : Colors.green.withValues(alpha: 0.08));
-    final effectiveBorder = isSettled
-        ? Colors.green.withValues(alpha: 0.25)
-        : (isNegative
-            ? Colors.red.withValues(alpha: 0.3)
-            : Colors.green.withValues(alpha: 0.3));
 
     return Container(
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isSettled
-              ? Colors.green.shade400
-              : AppColors.analytics.withValues(alpha: 0.3),
+          color: isSettled ? Colors.green.shade300 : const Color(0xFFD6E4DC),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: Date & Status Banner
+          // Header: Date & Status Banner with soft gradient
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: isSettled
-                  ? Colors.green.withValues(alpha: 0.1)
-                  : AppColors.analytics.withValues(alpha: 0.08),
+              gradient: LinearGradient(
+                colors: isSettled
+                    ? [const Color(0xFFE8F5E9), const Color(0xFFF1F8E9)]
+                    : [const Color(0xFFE8F4F0), const Color(0xFFF0F7F4)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
               borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(15)),
+                  const BorderRadius.vertical(top: Radius.circular(18)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.event,
-                        size: 16, color: AppColors.analytics),
-                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                      child: const Icon(
+                        Icons.calendar_today_rounded,
+                        size: 14,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Text(
                       'Today · ${AppDateUtils.formatDisplayDate(date)}',
                       style: const TextStyle(
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
                         fontSize: 13,
                         color: AppColors.textPrimary,
+                        letterSpacing: 0.2,
                       ),
                     ),
                   ],
                 ),
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
                   decoration: BoxDecoration(
                     color: isSettled
-                        ? Colors.green.shade700
-                        : Colors.amber.shade800,
-                    borderRadius: BorderRadius.circular(6),
+                        ? const Color(0xFF1B5E20)
+                        : const Color(0xFFE65100),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (isSettled
+                                ? const Color(0xFF1B5E20)
+                                : const Color(0xFFE65100))
+                            .withValues(alpha: 0.25),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  child: Text(
-                    isSettled ? '✓ SETTLED (₹0.00)' : 'ACTIVE / OPEN',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        isSettled ? '✓ SETTLED (₹0.00)' : 'ACTIVE / OPEN',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -897,49 +1058,86 @@ class _FrontDailyAnalysisCard extends StatelessWidget {
           ),
 
           Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Balance Row: Total Deposits vs Daily Remaining Balance
+                // Top Balance Row: Total Deposits vs Daily Remaining Balance (Rich Gradient Cards)
                 Row(
                   children: [
                     // Total Deposits Infused
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: AppColors.settlement.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                              color: AppColors.settlement
-                                  .withValues(alpha: 0.25)),
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFF0D47A1), // Deep navy blue
+                              Color(0xFF1976D2), // Royal blue
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF0D47A1)
+                                  .withValues(alpha: 0.28),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(
+                            Row(
                               children: [
-                                Icon(Icons.account_balance_wallet,
-                                    size: 14, color: AppColors.settlement),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Total Deposits',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: AppColors.textSecondary,
-                                    fontWeight: FontWeight.w600,
+                                Container(
+                                  padding: const EdgeInsets.all(5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.account_balance_wallet_rounded,
+                                    size: 13,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                const Expanded(
+                                  child: Text(
+                                    'Total Deposits',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.2,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 8),
                             Text(
                               '₹${totalDeposits.toStringAsFixed(2)}',
                               style: const TextStyle(
-                                fontSize: 18,
+                                fontSize: 19,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.settlement,
+                                color: Colors.white,
+                                letterSpacing: -0.3,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Counter Float Infused',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                color: Colors.white.withValues(alpha: 0.85),
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
@@ -951,61 +1149,95 @@ class _FrontDailyAnalysisCard extends StatelessWidget {
                     // Daily Remaining Amount Card
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: effectiveBg,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: effectiveBorder),
+                          gradient: LinearGradient(
+                            colors: isSettled
+                                ? [
+                                    const Color(0xFF1B5E20),
+                                    const Color(0xFF2E7D32)
+                                  ]
+                                : (isNegative
+                                    ? [
+                                        const Color(0xFFB71C1C),
+                                        const Color(0xFFD32F2F)
+                                      ]
+                                    : [
+                                        const Color(0xFF00695C),
+                                        const Color(0xFF00897B)
+                                      ]),
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: (isSettled || !isNegative
+                                      ? const Color(0xFF00695C)
+                                      : const Color(0xFFD32F2F))
+                                  .withValues(alpha: 0.28),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
-                                Icon(
-                                  isSettled
-                                      ? Icons.check_circle
-                                      : (isNegative
-                                          ? Icons.warning_amber_rounded
-                                          : Icons.account_balance_wallet),
-                                  size: 14,
-                                  color: effectiveColor,
+                                Container(
+                                  padding: const EdgeInsets.all(5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    isSettled
+                                        ? Icons.check_circle_rounded
+                                        : (isNegative
+                                            ? Icons.warning_amber_rounded
+                                            : Icons.savings_rounded),
+                                    size: 13,
+                                    color: Colors.white,
+                                  ),
                                 ),
-                                const SizedBox(width: 4),
-                                Expanded(
+                                const SizedBox(width: 6),
+                                const Expanded(
                                   child: Text(
                                     'Remaining Amount',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: effectiveColor,
+                                      color: Colors.white,
                                       fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.2,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 8),
                             Text(
                               isSettled
                                   ? '₹0.00'
                                   : (remainingAmount < 0
                                       ? '-₹${remainingAmount.abs().toStringAsFixed(2)}'
                                       : '₹${remainingAmount.toStringAsFixed(2)}'),
-                              style: TextStyle(
-                                fontSize: 18,
+                              style: const TextStyle(
+                                fontSize: 19,
                                 fontWeight: FontWeight.bold,
-                                color: effectiveColor,
+                                color: Colors.white,
+                                letterSpacing: -0.3,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              isSettled
-                                  ? 'Settled'
-                                  : 'Dep - Paid(Buy+Exp)',
+                              isSettled ? 'Settled' : 'Dep - Paid(Buy+Exp)',
                               style: TextStyle(
-                                fontSize: 9,
-                                color: effectiveColor.withValues(alpha: 0.8),
+                                fontSize: 9.5,
+                                color: Colors.white.withValues(alpha: 0.85),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -1021,75 +1253,106 @@ class _FrontDailyAnalysisCard extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.settlement,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF1E6F52), Color(0xFF2E7D32)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF1E6F52)
+                                  .withValues(alpha: 0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
                         ),
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text(
-                          '+ Add Deposit',
-                          style: TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.bold),
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: Colors.white,
+                            shadowColor: Colors.transparent,
+                            padding: const EdgeInsets.symmetric(vertical: 11),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          icon: const Icon(Icons.add_circle_outline, size: 18),
+                          label: const Text(
+                            '+ Add Deposit',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                          onPressed: onAddDepositTap,
                         ),
-                        onPressed: onAddDepositTap,
                       ),
                     ),
                     const SizedBox(width: 10),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         foregroundColor: isSettled
-                            ? Colors.green.shade700
+                            ? Colors.green.shade800
                             : AppColors.settlement,
                         side: BorderSide(
                           color: isSettled
                               ? Colors.green.shade400
-                              : AppColors.settlement,
+                              : AppColors.settlement.withValues(alpha: 0.5),
+                          width: 1.5,
                         ),
+                        backgroundColor:
+                            (isSettled ? Colors.green : AppColors.settlement)
+                                .withValues(alpha: 0.06),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 10),
+                            horizontal: 14, vertical: 11),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                       icon: Icon(
-                        isSettled ? Icons.verified : Icons.calculate_outlined,
+                        isSettled
+                            ? Icons.verified_rounded
+                            : Icons.calculate_outlined,
                         size: 16,
                       ),
                       label: Text(
                         isSettled ? 'Settled' : 'Settle Day',
                         style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.bold),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       onPressed: onSettlementTap,
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
 
                 const Divider(height: 1),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
 
-                // Today's Activity Metrics Grid
+                // Today's Activity Metrics Grid (2x2 + 1 Row)
                 Row(
                   children: [
                     Expanded(
                       child: _HeroMetricMini(
                         label: 'Purchases Total',
                         value: '₹${totalPurchaseAmount.toStringAsFixed(2)}',
-                        icon: Icons.shopping_bag,
+                        icon: Icons.shopping_bag_outlined,
                         color: AppColors.buy,
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: _HeroMetricMini(
                         label: 'Total Qty (Kg)',
                         value: '${totalKg.toStringAsFixed(1)} kg',
-                        icon: Icons.scale,
+                        icon: Icons.scale_outlined,
                         color: AppColors.analytics,
                       ),
                     ),
@@ -1102,7 +1365,7 @@ class _FrontDailyAnalysisCard extends StatelessWidget {
                       child: _HeroMetricMini(
                         label: 'Paid to Farmers',
                         value: '₹${totalAmountPaidFarmers.toStringAsFixed(2)}',
-                        icon: Icons.payments,
+                        icon: Icons.payments_outlined,
                         color: Colors.green.shade700,
                       ),
                     ),
@@ -1111,7 +1374,7 @@ class _FrontDailyAnalysisCard extends StatelessWidget {
                       child: _HeroMetricMini(
                         label: 'Pending to Farmers',
                         value: '₹${pendingFarmerDue.toStringAsFixed(2)}',
-                        icon: Icons.pending_actions,
+                        icon: Icons.pending_actions_outlined,
                         color: pendingFarmerDue > 0
                             ? Colors.orange.shade800
                             : Colors.green.shade700,
@@ -1126,7 +1389,7 @@ class _FrontDailyAnalysisCard extends StatelessWidget {
                       child: _HeroMetricMini(
                         label: 'Mandi Expenses',
                         value: '₹${totalExpenditures.toStringAsFixed(2)}',
-                        icon: Icons.receipt_long,
+                        icon: Icons.receipt_long_outlined,
                         color: AppColors.expenditure,
                       ),
                     ),
@@ -1136,56 +1399,81 @@ class _FrontDailyAnalysisCard extends StatelessWidget {
                         label: 'Total Drawer Outflow',
                         value:
                             '₹${(totalAmountPaidFarmers + totalExpenditures).toStringAsFixed(2)}',
-                        icon: Icons.arrow_outward,
+                        icon: Icons.arrow_outward_rounded,
                         color: Colors.red.shade700,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
 
                 // Open Full Daily Analysis Navigation Strip
                 InkWell(
                   onTap: onViewFullAnalysisTap,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
+                        horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: AppColors.analytics.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.analytics.withValues(alpha: 0.08),
+                          AppColors.analytics.withValues(alpha: 0.03),
+                        ],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: AppColors.analytics.withValues(alpha: 0.22),
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.receipt_long,
-                                size: 15, color: AppColors.analytics),
-                            const SizedBox(width: 6),
-                            Text(
-                              '$purchasesCount purchase transaction${purchasesCount == 1 ? '' : 's'} recorded today',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.analytics
+                                      .withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Icon(Icons.receipt_long,
+                                    size: 14, color: AppColors.analytics),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '$purchasesCount purchase transaction${purchasesCount == 1 ? '' : 's'} recorded today',
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         const Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
                               'Full Daily Analysis',
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 11.5,
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.analytics,
                               ),
                             ),
                             SizedBox(width: 4),
                             Icon(Icons.arrow_forward_ios,
-                                size: 10, color: AppColors.analytics),
+                                size: 11, color: AppColors.analytics),
                           ],
                         ),
                       ],
@@ -1217,41 +1505,96 @@ class _HeroMetricMini extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      margin: const EdgeInsets.symmetric(horizontal: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.divider.withValues(alpha: 0.6)),
+        color: color.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 12, color: color),
-              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(icon, size: 12, color: color),
+              ),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   label,
                   style: const TextStyle(
-                      fontSize: 10, color: AppColors.textSecondary),
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 5),
           Text(
             value,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 13.5,
               fontWeight: FontWeight.bold,
               color: color,
             ),
             overflow: TextOverflow.ellipsis,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Quick Jump Action Pill above the main modules grid
+class _QuickJumpPill extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _QuickJumpPill({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1277,72 +1620,135 @@ class _ModuleOptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: AppColors.divider.withValues(alpha: 0.8)),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: color.withValues(alpha: 0.18),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(icon, color: color, size: 20),
-                  ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      badgeText,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: color,
-                      ),
+              // Left vertical colored accent bar
+              Positioned(
+                left: 0,
+                top: 14,
+                bottom: 14,
+                child: Container(
+                  width: 3.5,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: const BorderRadius.horizontal(
+                      right: Radius.circular(3),
                     ),
                   ),
-                ],
+                ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
+
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                color.withValues(alpha: 0.85),
+                                color,
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: color.withValues(alpha: 0.3),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Icon(icon, color: Colors.white, size: 18),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: color.withValues(alpha: 0.22),
+                            ),
+                          ),
+                          child: Text(
+                            badgeText,
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                              color: color,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: AppColors.textSecondary,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                subtitle,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: AppColors.textSecondary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 11,
+                          color: color.withValues(alpha: 0.45),
+                        ),
+                      ],
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
