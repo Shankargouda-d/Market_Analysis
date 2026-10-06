@@ -52,8 +52,8 @@ class _SellScreenState extends State<SellScreen> {
       });
     }
 
-    // 2. Background sync with Google Sheets & backend
-    final fresh = await DataRepository.getSales(syncWithSheets: true);
+    // 2. Background sync with backend
+    final fresh = await DataRepository.getSales();
     final freshFactories = await DataRepository.getFactories();
     if (!mounted) return;
     setState(() {
@@ -352,7 +352,7 @@ class _SellScreenState extends State<SellScreen> {
       dateTime: _dateTime,
       totalLabel: 'Total Sale Amount',
       totalAmount: soldAmount,
-      confirmButtonText: 'Confirm & Save to Sheets',
+      confirmButtonText: 'Confirm & Save Sale',
       fields: [
         TitleCardField(
           icon: Icons.grass,
@@ -438,19 +438,19 @@ class _SellScreenState extends State<SellScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('✓ Sale recorded! Syncing with Google Sheets...'),
+        content: Text('✓ Sale recorded! Syncing...'),
         duration: Duration(seconds: 2),
       ),
     );
 
-    // Background sync to Google Sheets without freezing UI
-    final synced = await DataRepository.syncSaleToSheets(sale);
+    // Background sync to Supabase without freezing UI
+    final synced = await DataRepository.syncSaleToBackend(sale);
     if (!mounted) return;
 
     if (synced) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('✓ Synced to Google Sheets successfully'),
+          content: Text('✓ Synced to cloud database successfully'),
           backgroundColor: AppColors.profit,
           duration: Duration(seconds: 2),
         ),
@@ -458,7 +458,7 @@ class _SellScreenState extends State<SellScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Saved locally. Google Sheets sync pending/offline.'),
+          content: Text('Saved locally on device (offline).'),
           duration: Duration(seconds: 3),
         ),
       );

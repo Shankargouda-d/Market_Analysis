@@ -31,7 +31,7 @@ class _FactoryDetailsScreenState extends State<FactoryDetailsScreen> {
 
   Future<void> _loadData() async {
     setState(() => _loading = true);
-    final sales = await DataRepository.getSales(syncWithSheets: false);
+    final sales = await DataRepository.getSales();
     final factories = await DataRepository.getFactories();
     if (!mounted) return;
     setState(() {

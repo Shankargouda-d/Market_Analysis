@@ -6,6 +6,8 @@ import '../models/farmer_model.dart';
 import '../models/factory_model.dart';
 import '../models/worker_model.dart';
 import '../models/expenditure_model.dart';
+import '../models/daily_analysis_model.dart';
+import '../models/daily_settlement_model.dart';
 
 import 'auth_service.dart';
 
@@ -23,6 +25,9 @@ class LocalStorageService {
   static String get _factoriesKey => 'market_analysis_factories$_envSuffix';
   static String get _workersKey => 'market_analysis_workers$_envSuffix';
   static String get _expendituresKey => 'market_analysis_expenditures$_envSuffix';
+  static String get _dailyAnalysisKey => 'market_analysis_daily_analysis$_envSuffix';
+  static String get _dailySettlementsKey => 'market_analysis_daily_settlements$_envSuffix';
+  static String get _dailyDepositsKey => 'market_analysis_daily_deposits$_envSuffix';
 
   /// Loads locally saved purchases. Returns an empty list if none are saved.
   static Future<List<PurchaseModel>> loadPurchases() async {
@@ -72,6 +77,22 @@ class LocalStorageService {
     } else {
       await addPurchase(purchase);
     }
+  }
+
+  /// Appends a new payment installment to an existing purchase in local storage.
+  static Future<PurchaseModel?> addPaymentToPurchase(
+      String purchaseId, PaymentEntry payment) async {
+    final list = await loadPurchases();
+    final index = list.indexWhere((p) => p.id == purchaseId);
+    if (index != -1) {
+      final existing = list[index];
+      final updatedPayments = [...existing.payments, payment];
+      final updated = existing.copyWith(payments: updatedPayments);
+      list[index] = updated;
+      await savePurchases(list);
+      return updated;
+    }
+    return null;
   }
 
   /// Deletes a purchase from local storage by id.
@@ -300,6 +321,9 @@ class LocalStorageService {
       await prefs.remove(_factoriesKey);
       await prefs.remove(_workersKey);
       await prefs.remove(_expendituresKey);
+      await prefs.remove(_dailyAnalysisKey);
+      await prefs.remove(_dailySettlementsKey);
+      await prefs.remove(_dailyDepositsKey);
     } catch (_) {}
   }
 
@@ -397,4 +421,174 @@ class LocalStorageService {
     list.removeWhere((e) => e.id == id);
     await saveExpenditures(list);
   }
+
+  // ====================================================================
+  // Daily Analysis (Permanent date-wise historical snapshots)
+  // ====================================================================
+
+  /// Loads all permanently stored daily analysis records from local storage.
+  static Future<List<DailyAnalysisModel>> loadDailyAnalyses() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonString = prefs.getString(_dailyAnalysisKey);
+      if (jsonString == null || jsonString.isEmpty) return [];
+
+      final List<dynamic> decoded = jsonDecode(jsonString);
+      final list = decoded
+          .map((e) => DailyAnalysisModel.fromJson(Map<String, dynamic>.from(e)))
+          .toList()
+        ..sort((a, b) => b.date.compareTo(a.date));
+      return list;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Overwrites the saved daily analyses list.
+  static Future<void> saveDailyAnalyses(List<DailyAnalysisModel> list) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonString = jsonEncode(list.map((a) => a.toJson()).toList());
+      await prefs.setString(_dailyAnalysisKey, jsonString);
+    } catch (_) {}
+  }
+
+  /// Saves or updates a single daily analysis record permanently.
+  static Future<void> saveDailyAnalysis(DailyAnalysisModel analysis) async {
+    final list = await loadDailyAnalyses();
+    list.removeWhere(
+        (a) => a.id == analysis.id || a.dateString == analysis.dateString);
+    list.insert(0, analysis);
+    list.sort((a, b) => b.date.compareTo(a.date));
+    await saveDailyAnalyses(list);
+  }
+
+  /// Returns the saved analysis record for a specific date (YYYY-MM-DD), or null if not found.
+  static Future<DailyAnalysisModel?> getDailyAnalysisForDate(
+      String dateStr) async {
+    final list = await loadDailyAnalyses();
+    try {
+      return list.firstWhere(
+          (a) => a.dateString == dateStr || a.id == 'analysis_$dateStr');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ====================================================================
+  // Daily Settlements & Deposits (Permanent settlement records)
+  // ====================================================================
+
+  /// Loads all permanently stored daily settlement records.
+  static Future<List<DailySettlementModel>> loadDailySettlements() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonString = prefs.getString(_dailySettlementsKey);
+      final deposits = await loadDailyDeposits();
+      if (jsonString == null || jsonString.isEmpty) return [];
+
+      final List<dynamic> decoded = jsonDecode(jsonString);
+      final list = decoded
+          .map((e) {
+            final map = Map<String, dynamic>.from(e);
+            final sId = map['id']?.toString() ?? '';
+            final sDate = map['date']?.toString() ?? '';
+            final matchingDeposits = deposits.where((d) =>
+                d.settlementId == sId ||
+                d.settlementId == 'settle_$sDate' ||
+                '${d.date.year.toString().padLeft(4, '0')}-${d.date.month.toString().padLeft(2, '0')}-${d.date.day.toString().padLeft(2, '0')}' == sDate).toList();
+            return DailySettlementModel.fromJson(map, deposits: matchingDeposits);
+          })
+          .toList()
+        ..sort((a, b) => b.date.compareTo(a.date));
+      return list;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Overwrites the saved daily settlements list.
+  static Future<void> saveDailySettlements(List<DailySettlementModel> list) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonString = jsonEncode(list.map((s) => s.toJson()).toList());
+      await prefs.setString(_dailySettlementsKey, jsonString);
+    } catch (_) {}
+  }
+
+  /// Saves or updates a single daily settlement record permanently.
+  static Future<void> saveDailySettlement(DailySettlementModel settlement) async {
+    final list = await loadDailySettlements();
+    list.removeWhere(
+        (s) => s.id == settlement.id || s.dateString == settlement.dateString);
+    list.insert(0, settlement);
+    list.sort((a, b) => b.date.compareTo(a.date));
+    await saveDailySettlements(list);
+  }
+
+  /// Returns the saved settlement record for a specific date (YYYY-MM-DD), or null.
+  static Future<DailySettlementModel?> getDailySettlementForDate(String dateStr) async {
+    final list = await loadDailySettlements();
+    try {
+      return list.firstWhere(
+          (s) => s.dateString == dateStr || s.id == 'settle_$dateStr');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Loads all daily deposit entries.
+  static Future<List<DailyDepositEntry>> loadDailyDeposits() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonString = prefs.getString(_dailyDepositsKey);
+      if (jsonString == null || jsonString.isEmpty) return [];
+
+      final List<dynamic> decoded = jsonDecode(jsonString);
+      final list = decoded
+          .map((e) => DailyDepositEntry.fromJson(Map<String, dynamic>.from(e)))
+          .toList()
+        ..sort((a, b) => b.time.compareTo(a.time));
+      return list;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Overwrites the saved daily deposits list.
+  static Future<void> saveDailyDeposits(List<DailyDepositEntry> list) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonString = jsonEncode(list.map((d) => d.toJson()).toList());
+      await prefs.setString(_dailyDepositsKey, jsonString);
+    } catch (_) {}
+  }
+
+  /// Appends a new daily deposit entry.
+  static Future<void> addDailyDeposit(DailyDepositEntry deposit) async {
+    final list = await loadDailyDeposits();
+    list.removeWhere((d) => d.id == deposit.id);
+    list.insert(0, deposit);
+    list.sort((a, b) => b.time.compareTo(a.time));
+    await saveDailyDeposits(list);
+  }
+
+  /// Deletes a daily deposit entry by id.
+  static Future<void> deleteDailyDeposit(String id) async {
+    final list = await loadDailyDeposits();
+    list.removeWhere((d) => d.id == id);
+    await saveDailyDeposits(list);
+  }
+
+  /// Loads daily deposits matching a specific calendar date (YYYY-MM-DD).
+  static Future<List<DailyDepositEntry>> loadDailyDepositsForDate(String dateStr) async {
+    final list = await loadDailyDeposits();
+    return list.where((d) {
+      final dStr =
+          '${d.date.year.toString().padLeft(4, '0')}-${d.date.month.toString().padLeft(2, '0')}-${d.date.day.toString().padLeft(2, '0')}';
+      return dStr == dateStr;
+    }).toList()
+      ..sort((a, b) => b.time.compareTo(a.time));
+  }
 }
+

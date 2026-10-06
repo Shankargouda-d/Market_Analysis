@@ -510,7 +510,7 @@ class _ExpenditureScreenState extends State<ExpenditureScreen> {
 
                     // Paid To (Optional)
                     CustomTextField(
-                      label: 'Paid To / Vendor / Driver (Optional)',
+                      label: 'Paid To (Optional)',
                       controller: _paidToCtrl,
                       prefixIcon: const Icon(Icons.person_outline),
                     ),
@@ -702,9 +702,18 @@ class _ExpenditureScreenState extends State<ExpenditureScreen> {
                               ),
                               if (item.paidTo.isNotEmpty) ...[
                                 const SizedBox(height: 2),
-                                Text(
-                                  'Paid to: ${item.paidTo}',
-                                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.person, size: 13, color: AppColors.textSecondary),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        'Paid to: ${item.paidTo}',
+                                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                               const SizedBox(height: 2),

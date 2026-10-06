@@ -268,7 +268,7 @@ class ConfirmationTitleCardDialog extends StatelessWidget {
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'Confirm to store this entry and push to Google Sheets.',
+                          'Confirm to store this entry and sync with cloud database.',
                           style: TextStyle(
                             fontSize: 11,
                             color: AppColors.textSecondary.withValues(alpha: 0.9),

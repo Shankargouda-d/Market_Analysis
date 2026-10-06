@@ -6,6 +6,8 @@ import '../models/purchase_model.dart';
 import '../models/sale_model.dart';
 import '../models/worker_model.dart';
 import '../models/expenditure_model.dart';
+import '../models/daily_analysis_model.dart';
+import '../models/daily_settlement_model.dart';
 import 'auth_service.dart';
 
 /// Production service providing direct, type-safe communication
@@ -17,6 +19,8 @@ class SupabaseService {
 
   static bool _initialized = false;
 
+  static bool _networkUnreachable = false;
+
   /// Resolves the physically isolated table name based on current user:
   /// MarketP -> 'p_purchases', 'p_sales', etc.
   /// MarketT -> 't_purchases', 't_sales', etc.
@@ -24,11 +28,16 @@ class SupabaseService {
 
   /// True if Supabase was successfully initialized with valid URL and key.
   static bool get isInitialized =>
-      _initialized && AppConstants.isSupabaseConfigured;
+      _initialized && AppConstants.isSupabaseConfigured && !_networkUnreachable;
 
-  /// Gets the active Supabase client instance, or null if not configured.
+  /// Gets the active Supabase client instance, or null if not configured or unreachable.
   static SupabaseClient? get client =>
       isInitialized ? Supabase.instance.client : null;
+
+  /// Resets reachability status to re-attempt connection.
+  static void resetReachability() {
+    _networkUnreachable = false;
+  }
 
   /// Initializes Supabase on app startup. Safe to call anytime;
   /// gracefully skips if configuration is missing.
@@ -417,4 +426,213 @@ class SupabaseService {
       return [];
     }
   }
+
+  // ====================================================================
+  // Daily Analysis (Permanent date-wise historical snapshots)
+  // ====================================================================
+
+  static Future<bool> upsertDailyAnalysis(DailyAnalysisModel analysis) async {
+    final c = client;
+    if (c == null) return false;
+    try {
+      await c.from(table('daily_analysis')).upsert(analysis.toSupabaseMap());
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<List<DailyAnalysisModel>> fetchDailyAnalyses() async {
+    final c = client;
+    if (c == null) return [];
+    try {
+      final res = await c
+          .from(table('daily_analysis'))
+          .select()
+          .order('date', ascending: false);
+
+      final list = (res as List)
+          .map((row) =>
+              DailyAnalysisModel.fromJson(Map<String, dynamic>.from(row)))
+          .toList();
+      return list;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<DailyAnalysisModel?> fetchDailyAnalysisForDate(
+      String dateStr) async {
+    final c = client;
+    if (c == null) return null;
+    try {
+      final res = await c
+          .from(table('daily_analysis'))
+          .select()
+          .eq('date', dateStr)
+          .maybeSingle();
+
+      if (res != null) {
+        return DailyAnalysisModel.fromJson(Map<String, dynamic>.from(res));
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<bool> deleteDailyAnalysis(String id) async {
+    final c = client;
+    if (c == null) return false;
+    try {
+      await c.from(table('daily_analysis')).delete().eq('id', id);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ====================================================================
+  // Daily Settlements & Deposits
+  // ====================================================================
+
+  static Future<bool> upsertDailySettlement(DailySettlementModel settlement) async {
+    final c = client;
+    if (c == null) return false;
+    try {
+      await c.from(table('daily_settlements')).upsert(settlement.toSupabaseMap());
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<List<DailySettlementModel>> fetchDailySettlements() async {
+    final c = client;
+    if (c == null) return [];
+    try {
+      final res = await c
+          .from(table('daily_settlements'))
+          .select()
+          .order('date', ascending: false);
+
+      final deposits = await fetchDailyDeposits();
+
+      final list = (res as List).map((row) {
+        final map = Map<String, dynamic>.from(row);
+        final sId = map['id']?.toString() ?? '';
+        final sDate = map['date']?.toString() ?? '';
+        final matchingDeposits = deposits.where((d) =>
+            d.settlementId == sId ||
+            d.settlementId == 'settle_$sDate' ||
+            '${d.date.year.toString().padLeft(4, '0')}-${d.date.month.toString().padLeft(2, '0')}-${d.date.day.toString().padLeft(2, '0')}' == sDate).toList();
+        return DailySettlementModel.fromJson(map, deposits: matchingDeposits);
+      }).toList();
+      return list;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<DailySettlementModel?> fetchDailySettlementForDate(String dateStr) async {
+    final c = client;
+    if (c == null) return null;
+    try {
+      final res = await c
+          .from(table('daily_settlements'))
+          .select()
+          .eq('date', dateStr)
+          .maybeSingle();
+
+      if (res != null) {
+        final map = Map<String, dynamic>.from(res);
+        final deposits = await fetchDailyDeposits(dateStr: dateStr);
+        return DailySettlementModel.fromJson(map, deposits: deposits);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<bool> completeDailySettlement(
+    String settlementId, {
+    String? settledBy,
+    String? notes,
+  }) async {
+    final c = client;
+    if (c == null) return false;
+    try {
+      // First attempt server-side PostgreSQL function for transactional guarantees
+      try {
+        await c.rpc('fn_complete_daily_settlement', params: {
+          'p_prefix': AuthService.tablePrefix.replaceAll('_', ''),
+          'p_settlement_id': settlementId,
+          'p_settled_by': settledBy ?? (AuthService.currentUserId ?? 'User'),
+          'p_notes': notes ?? '',
+        });
+        return true;
+      } catch (_) {
+        // Fallback to direct table update
+      }
+
+      await c.from(table('daily_settlements')).update({
+        'status': 'settled',
+        'remaining_amount': 0.0,
+        'settled_at': DateTime.now().toIso8601String(),
+        'settled_by': settledBy ?? (AuthService.currentUserId ?? 'User'),
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', settlementId);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> insertDailyDeposit(DailyDepositEntry deposit) async {
+    final c = client;
+    if (c == null) return false;
+    try {
+      await c.from(table('daily_deposits')).upsert(deposit.toSupabaseMap());
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> deleteDailyDeposit(String id) async {
+    final c = client;
+    if (c == null) return false;
+    try {
+      await c.from(table('daily_deposits')).delete().eq('id', id);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<List<DailyDepositEntry>> fetchDailyDeposits({
+    String? dateStr,
+    String? settlementId,
+  }) async {
+    final c = client;
+    if (c == null) return [];
+    try {
+      var query = c.from(table('daily_deposits')).select();
+      if (settlementId != null && settlementId.isNotEmpty) {
+        query = query.eq('settlement_id', settlementId);
+      } else if (dateStr != null && dateStr.isNotEmpty) {
+        query = query.eq('date', dateStr);
+      }
+      final res = await query.order('created_time', ascending: true);
+      final list = (res as List)
+          .map((row) => DailyDepositEntry.fromJson(Map<String, dynamic>.from(row)))
+          .toList();
+      return list;
+    } catch (_) {
+      return [];
+    }
+  }
 }
+

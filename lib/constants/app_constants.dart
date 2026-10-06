@@ -44,10 +44,6 @@ class AppConstants {
     'Cheque',
   ];
 
-  /// Deployed Google Apps Script Web App URL loaded safely from .env file.
-  static String get sheetsWebAppUrl =>
-      dotenv.env['SHEETS_WEB_APP_URL'] ?? '';
-
   /// Supabase project URL from .env.
   static String get supabaseUrl => dotenv.env['SUPABASE_URL']?.trim() ?? '';
 
@@ -60,5 +56,6 @@ class AppConstants {
       supabaseUrl.isNotEmpty &&
       supabaseUrl.startsWith('http') &&
       !supabaseUrl.contains('your-project-id') &&
+      !supabaseUrl.contains('ttrgrhrpvxyrsvkjqhmk') &&
       supabaseAnonKey.isNotEmpty;
 }

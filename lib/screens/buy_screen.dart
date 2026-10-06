@@ -49,10 +49,345 @@ class _BuyScreenState extends State<BuyScreen> {
       setState(() => _entries = cached);
     }
 
-    // 2. Background sync with Google Sheets
-    final fresh = await DataRepository.getPurchases(syncWithSheets: true);
+    // 2. Background sync with backend
+    final fresh = await DataRepository.getPurchases();
     if (!mounted) return;
     setState(() => _entries = fresh);
+  }
+
+  /// Direct Record Payment / Installment dialog for any purchase.
+  /// Allows recording the 2nd, 3rd, ... N-th payment with its exact date & time (e.g. 2 days or 10 mins later).
+  void _showRecordPaymentDialog(PurchaseModel purchase) {
+    final amountCtrl = TextEditingController(
+      text: purchase.remainingBalance > 0
+          ? purchase.remainingBalance.toStringAsFixed(2)
+          : '',
+    );
+    final notesCtrl = TextEditingController();
+    DateTime payDate = DateTime.now();
+    String selectedMode = AppConstants.paymentModes.first;
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx2, setLocal) {
+          final enteredAmt = double.tryParse(amountCtrl.text.trim()) ?? 0.0;
+          final newTotalPaid = purchase.totalAmountPaid + enteredAmt;
+          final newRemaining = purchase.totalAmount - newTotalPaid;
+          final isNowPaid = (purchase.totalAmount > 0 && newRemaining <= 0.0001);
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                const Icon(Icons.payments, color: AppColors.buy),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Record Payment: ${purchase.cropName}',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Overview card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardBackground,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.divider),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Farmer: ${purchase.farmerName}',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: purchase.isPaid
+                                      ? Colors.green.withValues(alpha: 0.15)
+                                      : Colors.amber.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: purchase.isPaid ? Colors.green : Colors.amber.shade800,
+                                  ),
+                                ),
+                                child: Text(
+                                  purchase.isPaid ? 'PAID ✓' : 'PENDING',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: purchase.isPaid ? Colors.green.shade800 : Colors.amber.shade900,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Total Crop Bill:', style: TextStyle(fontSize: 12)),
+                              Text(
+                                '₹${purchase.totalAmount.toStringAsFixed(2)}',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Already Paid (${purchase.payments.length} installment${purchase.payments.length == 1 ? '' : 's'}):',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              Text(
+                                '₹${purchase.totalAmountPaid.toStringAsFixed(2)}',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.buy),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Current Balance Due:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                              Text(
+                                '₹${purchase.remainingBalance.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: purchase.isPaid ? Colors.green : Colors.amber.shade900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Previous payments history
+                    if (purchase.payments.isNotEmpty) ...[
+                      const Text(
+                        'Payment History / Installments:',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        constraints: const BoxConstraints(maxHeight: 120),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: purchase.payments.length,
+                          itemBuilder: (context, i) {
+                            final pay = purchase.payments[i];
+                            final isInitial = i == 0;
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '#${i + 1}${isInitial ? ' (Advance)' : ''}: ${pay.date.day}/${pay.date.month}/${pay.date.year} (${pay.paymentMode})',
+                                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                  ),
+                                  Text(
+                                    '₹${pay.amount.toStringAsFixed(2)}',
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.buy),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const Divider(height: 16),
+                    ],
+
+                    const Text(
+                      'Record New Installment:',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: amountCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(
+                              labelText: 'Payment Amount (₹) *',
+                              prefixIcon: Icon(Icons.currency_rupee),
+                              border: OutlineInputBorder(),
+                            ),
+                            onChanged: (_) => setLocal(() {}),
+                            validator: (v) => Validators.positiveNumber(v, field: 'Amount'),
+                          ),
+                        ),
+                        if (purchase.remainingBalance > 0) ...[
+                          const SizedBox(width: 8),
+                          TextButton(
+                            onPressed: () {
+                              amountCtrl.text = purchase.remainingBalance.toStringAsFixed(2);
+                              setLocal(() {});
+                            },
+                            style: TextButton.styleFrom(
+                              backgroundColor: AppColors.buy.withValues(alpha: 0.1),
+                              foregroundColor: AppColors.buy,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+                            ),
+                            child: const Text('Full Bal', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Date & Time Picker (Takes custom payment time/date)
+                    DateTimePickerWidget(
+                      value: payDate,
+                      onChanged: (v) => setLocal(() => payDate = v),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Payment Method Dropdown
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedMode,
+                      items: AppConstants.paymentModes.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                      onChanged: (v) {
+                        if (v != null) setLocal(() => selectedMode = v);
+                      },
+                      decoration: const InputDecoration(
+                        labelText: 'Payment Method',
+                        prefixIcon: Icon(Icons.payment),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Note
+                    TextFormField(
+                      controller: notesCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Payment Note / Remarks (Optional)',
+                        prefixIcon: Icon(Icons.notes),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Live calculation card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: isNowPaid ? Colors.green.withValues(alpha: 0.1) : Colors.amber.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isNowPaid ? Colors.green.withValues(alpha: 0.4) : Colors.amber.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('New Remaining Balance:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              Text(
+                                isNowPaid ? '₹0.00' : '₹${(newRemaining > 0 ? newRemaining : 0.0).toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: isNowPaid ? Colors.green.shade800 : Colors.amber.shade900,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Status After Payment:', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: isNowPaid ? Colors.green : Colors.amber.shade800,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  isNowPaid ? 'Paid' : 'Pending',
+                                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  if (formKey.currentState!.validate()) {
+                    final nav = Navigator.of(ctx);
+                    final messenger = ScaffoldMessenger.of(context);
+                    final payment = PaymentEntry(
+                      amount: double.parse(amountCtrl.text.trim()),
+                      date: payDate,
+                      paymentMode: selectedMode,
+                      notes: notesCtrl.text.trim(),
+                    );
+                    await DataRepository.addPaymentToPurchase(purchase.id, payment);
+                    nav.pop();
+                    if (mounted) {
+                      _loadEntries();
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text('✓ Payment of ₹${payment.amount.toStringAsFixed(2)} recorded for ${purchase.farmerName}!'),
+                          backgroundColor: Colors.green.shade700,
+                        ),
+                      );
+                    }
+                  }
+                },
+                icon: const Icon(Icons.check, size: 16),
+                label: const Text('Save Payment'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.buy,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   void _showEditPurchaseDialog(PurchaseModel purchase) {
@@ -67,8 +402,9 @@ class _BuyScreenState extends State<BuyScreen> {
         text: purchase.suitsKg > 0 ? purchase.suitsKg.toString() : '');
     final priceCtrl =
         TextEditingController(text: purchase.pricePerUnit.toString());
-    final advanceCtrl = TextEditingController(
-        text: purchase.advancePaid > 0 ? purchase.advancePaid.toString() : '');
+
+    // Work on a mutable clone of all installments
+    final editPayments = List<PaymentEntry>.from(purchase.payments);
     final formKey = GlobalKey<FormState>();
 
     showDialog(
@@ -78,7 +414,6 @@ class _BuyScreenState extends State<BuyScreen> {
           final q = double.tryParse(qtyCtrl.text.trim()) ?? 0;
           final sKg = double.tryParse(suitsCtrl.text.trim()) ?? 0;
           final pr = double.tryParse(priceCtrl.text.trim()) ?? 0;
-          final adv = double.tryParse(advanceCtrl.text.trim()) ?? 0;
 
           double sInUnit = 0;
           final lower = selectedUnit.toLowerCase();
@@ -91,7 +426,9 @@ class _BuyScreenState extends State<BuyScreen> {
           }
           final netQ = (q - sInUnit) > 0 ? (q - sInUnit) : 0.0;
           final cropTot = netQ * pr;
-          final netPay = cropTot - adv;
+          final totalPaidSoFar =
+              editPayments.fold<double>(0.0, (sum, p) => sum + p.amount);
+          final netPay = cropTot - totalPaidSoFar;
 
           return AlertDialog(
             shape:
@@ -223,25 +560,241 @@ class _BuyScreenState extends State<BuyScreen> {
                           Validators.positiveNumber(v, field: 'Price'),
                     ),
                     const SizedBox(height: 12),
-                    TextFormField(
-                      controller: advanceCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true),
-                      decoration: const InputDecoration(
-                        labelText: 'Advance Paid (\u20B9) - Optional',
-                        prefixIcon: Icon(Icons.account_balance_wallet_outlined,
-                            color: Colors.blueGrey),
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (_) => setDlgState(() {}),
-                    ),
-                    const SizedBox(height: 12),
                     DateTimePickerWidget(
                       value: selectedDateTime,
                       onChanged: (v) =>
                           setDlgState(() => selectedDateTime = v),
                     ),
+                    const SizedBox(height: 14),
+
+                    // Multi-installment payments management
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardBackground,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.divider),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.history,
+                                      size: 16, color: AppColors.buy),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Payments (${editPayments.length})',
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                              TextButton.icon(
+                                icon: const Icon(Icons.add, size: 14),
+                                label: const Text('Add Payment',
+                                    style: TextStyle(fontSize: 11)),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                onPressed: () {
+                                  // Open sub-dialog to add an installment with date/time
+                                  final newAmtCtrl = TextEditingController(
+                                    text: netPay > 0
+                                        ? netPay.toStringAsFixed(2)
+                                        : '',
+                                  );
+                                  final newNotesCtrl = TextEditingController();
+                                  DateTime newPayDate = DateTime.now();
+                                  String newPayMode =
+                                      AppConstants.paymentModes.first;
+                                  final subFk = GlobalKey<FormState>();
+
+                                  showDialog(
+                                    context: ctx,
+                                    builder: (subCtx) => StatefulBuilder(
+                                      builder: (subCtx2, setSub) => AlertDialog(
+                                        title: const Text('Add Installment'),
+                                        content: Form(
+                                          key: subFk,
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              TextFormField(
+                                                controller: newAmtCtrl,
+                                                keyboardType:
+                                                    const TextInputType.numberWithOptions(
+                                                        decimal: true),
+                                                decoration:
+                                                    const InputDecoration(
+                                                  labelText:
+                                                      'Installment Amount (\u20B9) *',
+                                                  prefixIcon: Icon(
+                                                      Icons.currency_rupee),
+                                                  border: OutlineInputBorder(),
+                                                ),
+                                                validator: (v) =>
+                                                    Validators.positiveNumber(v,
+                                                        field: 'Amount'),
+                                              ),
+                                              const SizedBox(height: 10),
+                                              DateTimePickerWidget(
+                                                value: newPayDate,
+                                                onChanged: (v) => setSub(
+                                                    () => newPayDate = v),
+                                              ),
+                                              const SizedBox(height: 10),
+                                              DropdownButtonFormField<String>(
+                                                initialValue: newPayMode,
+                                                items: AppConstants.paymentModes
+                                                    .map((m) =>
+                                                        DropdownMenuItem(
+                                                            value: m,
+                                                            child: Text(m)))
+                                                    .toList(),
+                                                onChanged: (v) {
+                                                  if (v != null) {
+                                                    setSub(() =>
+                                                        newPayMode = v);
+                                                  }
+                                                },
+                                                decoration:
+                                                    const InputDecoration(
+                                                  labelText: 'Payment Mode',
+                                                  border: OutlineInputBorder(),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 10),
+                                              TextFormField(
+                                                controller: newNotesCtrl,
+                                                decoration:
+                                                    const InputDecoration(
+                                                  labelText:
+                                                      'Note / Remarks (Optional)',
+                                                  border: OutlineInputBorder(),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.of(subCtx).pop(),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () {
+                                              if (subFk.currentState!
+                                                  .validate()) {
+                                                final amt = double.parse(
+                                                    newAmtCtrl.text.trim());
+                                                setDlgState(() {
+                                                  editPayments.add(
+                                                    PaymentEntry(
+                                                      amount: amt,
+                                                      date: newPayDate,
+                                                      paymentMode: newPayMode,
+                                                      notes: newNotesCtrl.text
+                                                          .trim(),
+                                                    ),
+                                                  );
+                                                  editPayments.sort((a, b) =>
+                                                      a.date.compareTo(b.date));
+                                                });
+                                                Navigator.of(subCtx).pop();
+                                              }
+                                            },
+                                            child: const Text('Add'),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                          if (editPayments.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 6),
+                              child: Text(
+                                'No payments recorded yet. Tap "Add Payment" to record an advance or payment.',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.textSecondary),
+                              ),
+                            )
+                          else
+                            ...editPayments.asMap().entries.map((entry) {
+                              final idx = entry.key;
+                              final pay = entry.value;
+                              return Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 4),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 9,
+                                      backgroundColor: AppColors.buy
+                                          .withValues(alpha: 0.15),
+                                      child: Text(
+                                        '${idx + 1}',
+                                        style: const TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.buy),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '₹${pay.amount.toStringAsFixed(2)} • ${pay.paymentMode}',
+                                            style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                          Text(
+                                            '${pay.date.day}/${pay.date.month}/${pay.date.year} ${pay.date.hour}:${pay.date.minute.toString().padLeft(2, '0')}${pay.notes.isNotEmpty ? ' • ${pay.notes}' : ''}',
+                                            style: const TextStyle(
+                                                fontSize: 10,
+                                                color: AppColors.textSecondary),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline,
+                                          size: 16, color: Colors.red),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      tooltip: 'Remove Installment',
+                                      onPressed: () {
+                                        setDlgState(() {
+                                          editPayments.removeAt(idx);
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 12),
+
+                    // Live calculation summary card
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -308,16 +861,16 @@ class _BuyScreenState extends State<BuyScreen> {
                                       fontWeight: FontWeight.bold)),
                             ],
                           ),
-                          if (adv > 0) ...[
+                          if (totalPaidSoFar > 0) ...[
                             const SizedBox(height: 4),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('(-) Advance Paid:',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.brown)),
-                                Text('-\u20B9${adv.toStringAsFixed(2)}',
+                                Text(
+                                    '(-) Paid Across ${editPayments.length} Installment${editPayments.length == 1 ? '' : 's'}:',
+                                    style: const TextStyle(
+                                        fontSize: 12, color: Colors.brown)),
+                                Text('-\u20B9${totalPaidSoFar.toStringAsFixed(2)}',
                                     style: const TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
@@ -330,7 +883,7 @@ class _BuyScreenState extends State<BuyScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                adv > 0
+                                totalPaidSoFar > 0
                                     ? 'Net Balance to Pay:'
                                     : 'Total Amount:',
                                 style: const TextStyle(
@@ -338,7 +891,7 @@ class _BuyScreenState extends State<BuyScreen> {
                                     fontSize: 13),
                               ),
                               Text(
-                                '\u20B9${netPay.toStringAsFixed(2)}',
+                                '\u20B9${(netPay > 0 ? netPay : 0.0).toStringAsFixed(2)}',
                                 style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: AppColors.buy,
@@ -372,8 +925,7 @@ class _BuyScreenState extends State<BuyScreen> {
                       suitsKg: double.tryParse(suitsCtrl.text.trim()) ?? 0,
                       unit: selectedUnit,
                       pricePerUnit: double.parse(priceCtrl.text.trim()),
-                      advancePaid:
-                          double.tryParse(advanceCtrl.text.trim()) ?? 0,
+                      payments: editPayments,
                       dateTime: selectedDateTime,
                     );
 
@@ -445,32 +997,78 @@ class _BuyScreenState extends State<BuyScreen> {
               _buildVoucherRow(
                   'Total Crop Amount', '\u20B9${p.totalAmount.toStringAsFixed(2)}',
                   isBold: true),
-              if (p.advancePaid > 0)
-                _buildVoucherRow('Advance Paid',
-                    '-\u20B9${p.advancePaid.toStringAsFixed(2)}',
-                    textColor: Colors.amber.shade900),
+              const Divider(height: 16),
+
+              // Detailed Payment Installments History
+              const Text(
+                'Payment Schedule & Installments:',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              if (p.payments.isEmpty)
+                const Text(
+                  'No payments recorded yet.',
+                  style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                )
+              else
+                ...p.sortedPayments.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final pay = entry.value;
+                  final isInitial = idx == 0;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2.5),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '#${idx + 1}${isInitial ? ' (Advance)' : ''}: ${pay.date.day}/${pay.date.month}/${pay.date.year} (${pay.paymentMode})',
+                          style: const TextStyle(
+                              fontSize: 11, color: AppColors.textSecondary),
+                        ),
+                        Text(
+                          '₹${pay.amount.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.buy),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              const SizedBox(height: 4),
+              _buildVoucherRow('Total Amount Paid',
+                  '\u20B9${p.totalAmountPaid.toStringAsFixed(2)}',
+                  textColor: Colors.green.shade800, isBold: true),
               const Divider(height: 16),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.buy.withValues(alpha: 0.1),
+                  color: p.isPaid
+                      ? Colors.green.withValues(alpha: 0.1)
+                      : Colors.amber.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: p.isPaid ? Colors.green : Colors.amber.shade800,
+                  ),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      p.advancePaid > 0
-                          ? 'Net Balance to Pay:'
-                          : 'Total Amount:',
+                      p.isPaid ? 'Fully Settled:' : 'Balance to Pay:',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     Text(
-                      '\u20B9${p.netPayable.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontSize: 17,
+                      p.isPaid
+                          ? 'PAID ✓'
+                          : '\u20B9${p.remainingBalance.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.buy,
+                        color: p.isPaid
+                            ? Colors.green.shade800
+                            : Colors.amber.shade900,
                       ),
                     ),
                   ],
@@ -484,6 +1082,19 @@ class _BuyScreenState extends State<BuyScreen> {
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Close'),
           ),
+          if (p.isPending)
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _showRecordPaymentDialog(p);
+              },
+              icon: const Icon(Icons.add_card, size: 16),
+              label: const Text('Record Payment'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green.shade700,
+                foregroundColor: Colors.white,
+              ),
+            ),
           ElevatedButton.icon(
             onPressed: () {
               Navigator.of(ctx).pop();
@@ -625,7 +1236,7 @@ class _BuyScreenState extends State<BuyScreen> {
       totalLabel:
           advancePaid > 0 ? 'Net Balance to Pay' : 'Total Purchase Amount',
       totalAmount: netPayable,
-      confirmButtonText: 'Confirm & Save to Sheets',
+      confirmButtonText: 'Confirm & Save Purchase',
       fields: [
         TitleCardField(
           icon: Icons.grass,
@@ -701,7 +1312,17 @@ class _BuyScreenState extends State<BuyScreen> {
       suitsKg: suitsKg,
       unit: _unit,
       pricePerUnit: pricePerUnit,
-      advancePaid: advancePaid,
+      // Wrap the initial advance as the first dated payment installment.
+      payments: advancePaid > 0
+          ? [
+              PaymentEntry(
+                amount: advancePaid,
+                date: _dateTime,
+                paymentMode: 'Cash',
+                notes: 'Advance on booking',
+              )
+            ]
+          : const [],
       dateTime: _dateTime,
     );
 
@@ -743,19 +1364,19 @@ class _BuyScreenState extends State<BuyScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('✓ Purchase recorded! Syncing with Google Sheets...'),
+        content: Text('✓ Purchase recorded! Syncing...'),
         duration: Duration(seconds: 2),
       ),
     );
 
-    // Sync to Google Sheets in background
-    final synced = await DataRepository.syncPurchaseToSheets(purchase);
+    // Sync to Supabase cloud backend in background
+    final synced = await DataRepository.syncPurchaseToBackend(purchase);
     if (!mounted) return;
 
     if (synced) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('✓ Synced to Google Sheets successfully'),
+          content: Text('✓ Synced to cloud database successfully'),
           backgroundColor: AppColors.profit,
           duration: Duration(seconds: 2),
         ),
@@ -763,7 +1384,7 @@ class _BuyScreenState extends State<BuyScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Saved locally. Google Sheets sync pending/offline.'),
+          content: Text('Saved locally on device (offline).'),
           duration: Duration(seconds: 3),
         ),
       );
@@ -1169,10 +1790,14 @@ class _BuyScreenState extends State<BuyScreen> {
                 extraDetails: p.suitsKg > 0
                     ? 'Suits: ${p.suitsKg.toStringAsFixed(1)} kg • Net: ${p.netQuantity.toStringAsFixed(2)} ${p.unit}'
                     : null,
-                advancePaidLabel: p.advancePaid > 0
-                    ? 'Adv: \u20B9${p.advancePaid.toStringAsFixed(0)} | Bal: \u20B9${p.netPayable.toStringAsFixed(2)}'
-                    : null,
+                advancePaidLabel: p.isPaid
+                    ? 'PAID ✓ (₹${p.totalAmountPaid.toStringAsFixed(0)} in ${p.payments.length} payment${p.payments.length == 1 ? '' : 's'})'
+                    : (p.payments.isNotEmpty
+                        ? 'Paid ₹${p.totalAmountPaid.toStringAsFixed(0)} (${p.payments.length}) | Due: ₹${p.remainingBalance.toStringAsFixed(0)}'
+                        : 'Unpaid | Due: ₹${p.remainingBalance.toStringAsFixed(0)}'),
                 onTap: () => _showPurchaseDetailsDialog(p),
+                onAddPayment:
+                    p.isPending ? () => _showRecordPaymentDialog(p) : null,
                 onEdit: () => _showEditPurchaseDialog(p),
                 onDelete: () => _confirmDeletePurchase(p),
               )),

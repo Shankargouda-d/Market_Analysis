@@ -13,6 +13,7 @@ class EntryListTile extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final VoidCallback? onTap;
+  final VoidCallback? onAddPayment;
   final String? extraDetails; // e.g. "Suits: 20 kg • Net: 49.80 Quintal"
   final String? advancePaidLabel; // e.g. "Adv: ₹10,000 | Bal: ₹1,14,500"
 
@@ -27,6 +28,7 @@ class EntryListTile extends StatelessWidget {
     this.onEdit,
     this.onDelete,
     this.onTap,
+    this.onAddPayment,
     this.extraDetails,
     this.advancePaidLabel,
   });
@@ -137,7 +139,7 @@ class EntryListTile extends StatelessWidget {
                 ],
               ],
             ),
-            if (onTap != null || onEdit != null || onDelete != null) ...[
+            if (onTap != null || onEdit != null || onDelete != null || onAddPayment != null) ...[
               const SizedBox(width: 4),
               PopupMenuButton<String>(
                 icon: const Icon(
@@ -149,6 +151,7 @@ class EntryListTile extends StatelessWidget {
                 constraints: const BoxConstraints(),
                 onSelected: (val) {
                   if (val == 'view' && onTap != null) onTap!();
+                  if (val == 'pay' && onAddPayment != null) onAddPayment!();
                   if (val == 'edit' && onEdit != null) onEdit!();
                   if (val == 'delete' && onDelete != null) onDelete!();
                 },
@@ -161,6 +164,20 @@ class EntryListTile extends StatelessWidget {
                           Icon(Icons.visibility_outlined, size: 16),
                           SizedBox(width: 8),
                           Text('View Details'),
+                        ],
+                      ),
+                    ),
+                  if (onAddPayment != null)
+                    const PopupMenuItem(
+                      value: 'pay',
+                      child: Row(
+                        children: [
+                          Icon(Icons.add_card, size: 16, color: Colors.green),
+                          SizedBox(width: 8),
+                          Text('Record Payment',
+                              style: TextStyle(
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ),

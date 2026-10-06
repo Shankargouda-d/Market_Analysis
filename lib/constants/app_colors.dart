@@ -11,6 +11,7 @@ class AppColors {
   static const Color sell = Color(0xFFE64A19); // orange
   static const Color expenditure = Color(0xFFC2185B); // deep magenta-crimson
   static const Color analytics = Color(0xFF6A1B9A); // purple
+  static const Color settlement = Color(0xFF00695C); // rich pine teal for daily settlement & cash balance
   static const Color farmer = Color(0xFF2E7D32); // green
   static const Color factory = Color(0xFF455A64); // slate industrial blue-grey
   static const Color worker = Color(0xFF00897B); // teal

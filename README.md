@@ -22,17 +22,19 @@ The system strictly requires a User ID login before accessing any data:
 ## 🚀 Key Features
 
 1. **Buy (From Farmer)**:
-   - Crop selection, quantity, price per unit with automatic total calculation.
+   - Crop selection, quantity, suits/deductions (in kg), price per unit, and advance paid tracking.
    - Farmer directory with contact number, village address, and cascade update/delete.
 2. **Sell (To Factory)**:
-   - Factory directory with manager contacts, location, rate per unit calculations.
-3. **Analytics**:
+   - Factory directory with manager contacts, location, and rate per unit calculations.
+3. **Other Expenditure (Mandi Expenses & Labor)**:
+   - Track freight, hamali, packaging, diesel, office expenses, and labor/daily wages.
+   - Record worker/payee name, phone number, and address directly on each payment.
+4. **Daily Cash Settlement & Float Management**:
+   - Record cash float deposits, track daily outflows (farmer payouts + mandi expenses), and compute exact remaining balances.
+5. **Date-wise Daily Analysis & Analytics**:
    - Volume, gross turnover, net margins, top traded crops, and transaction history.
-4. **Directories (Farmers, Factories, Workers)**:
+6. **Directories (Farmers & Factories)**:
    - Full CRUD: Add, Edit, Delete with cascade options for linked transactions.
-5. **Google Sheets Integration**:
-   - Automated sync from Supabase into Google Sheets with separate tabs (`MarketP_Purchases`, `MarketT_Purchases`, etc.).
-   - One-click "Market Analysis" menu directly inside Google Spreadsheet.
 
 ---
 
@@ -42,16 +44,6 @@ The system strictly requires a User ID login before accessing any data:
 2. Go to **SQL Editor** -> Click **+ New Query**.
 3. Paste the contents of `backend/schema.sql` and click **Run**.
 4. Both `p_*` (Production) and `t_*` (Testing) tables, indexes, RLS policies, and realtime publications will be created instantly.
-
----
-
-## 📊 Google Sheets Sync Setup
-
-1. Create a Google Spreadsheet at [sheets.new](https://sheets.new).
-2. Go to **Extensions** -> **Apps Script**.
-3. Copy the contents of `apps_script/Code.gs` into your Apps Script editor.
-4. Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` in `CONFIG`.
-5. Run `onOpen` or refresh the sheet to see the **📊 Market Analysis** custom menu with one-click sync!
 
 ---
 
